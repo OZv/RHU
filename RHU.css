@@ -1,0 +1,86 @@
+.khr{font-family:"Lucida Grande","Lucida Sans Unicode","sans-serif";font-size:100%;line-height:115%}
+.khr h1, .khr h2, .khr h3, .khr h4, .khr ul, .khr ol, .khr li, .khr dl, .khr dt, .khr dd, .khr p{font-style:normal;margin:0;padding:0;border:none;font-size:100%}
+.khr li{list-style:none}
+.khr em, .khr i, .eet{font-style:italic;font-family:"Georgia","Times","Times New Roman","serif"}
+.khr a:hover, .mfe{text-decoration:underline}
+.ti9, .yik, .z5o, .r1q, .tlh, .lld, .nwt{}
+.rdg, .unb, .oda, .pc6, .eed, .wuu{}
+.hq2 .lxv, .oi9 .lxv, .sqy .lxv{border-bottom:1px gray dashed}
+.y2u{margin-bottom:0.3em}
+h1.bih, h2.qih{white-space:nowrap}
+h1.bih .snr, h2.qih .snr, h3 .eds{font-size:120%;font-weight:bold;color:blue}
+h1.bih .snr span, h2.qih .snr span:before, .aws{font-weight:normal}
+.snr span:before, .hlb .eds span:before, .aws .eds span:before, .kly .eds span:before{content:"\000B7"}
+h1.bih, h2.qih, h3.aws{display:inline-block}
+.bih+.aws, .qih+.aws, .kyi+.uzu .eet{padding-left:0.3em}
+h3.aws{font-size:90%}
+h2.qih .snr, .vy5 .eds, .hlb .eds, .tno .eds{font-size:110%}
+.mip{cursor:pointer}
+.hq2 .mip, .oi9 .mip, .sqy .mip{margin-left:0.6em;width:18px;vertical-align:text-top}
+.w2p .mip{width:14px;margin-right:0.3em}
+.k0a, .oi9, .sqy{margin-bottom:1em}
+.y2u+.lxv, .thm, .tno, .rof, .uh3{margin-top:1em}
+.eds, .jpx, .zsc, .mcy, .n7z, .b7a{font-weight:bold}
+.vy5 .eds, .hlb .eds, .tno .eds, .cwg .eds, .mcy{color:#369}
+.mcy{letter-spacing:0.5px;font-size:105%;color:chocolate;font-weight:bold;letter-spacing:-0.5px}
+.hlb .eds{color:royalblue}
+.hlb .eds:before{content:"-";color:black;padding-right:2px}
+.f1v+.eds:before, .eds~.eds:before{content:"";padding-right:0}
+.seu, .kyi{font-size:90%;white-space:nowrap;padding-right:0.2em}
+.zjt, .kly .eet, .aws .eet, .uzu .eet{color:teal;font-style:italic;font-size:85%;font-family:Helvetica;font-weight:normal;letter-spacing:0.5px}
+.seu{font-family:"Verdana";color:#757580;background-color:#F3F6FE;letter-spacing:-.5px}
+.ity{font-style:italic}
+.kyi, .kyi .eet{font-family:"Lucida Sans Unicode","Arial Unicode MS";color:#807575;padding-left:0.3em;background-color:#FEF3F9}
+.kyi .eet{padding:0}
+.kly .kyi{margin-right:0.5em}
+.lxv, .nq3, .c4d li{margin-bottom:0.2em}
+.lxv a{text-decoration:none;color:#36F;font-family:Helvetica}
+.lxv a+a{margin-left:0.6em}
+.c4d, .hlb, .bl7, .r6w, .vs7, .cwg, .ey7, .ywk, .zhq, .pj4, .sdd, .par, .ne7, .w2z{margin-bottom:0.8em}
+.kly{margin-top:0.5em}
+.f1v{font-weight:bold;color:sienna;font-family:"Trebuchet MS"}
+.wy7, .wtq{color:#090;font-size:95%;font-family:Helvetica;font-weight:normal}
+.uy4{padding:0.3em 0 0 1.5em}
+.lno{display:inline-block;position:absolute;left:2px}
+.lno, .bl7 .eds, .r6w .eds, .sdd .joq{color:dimgray;font-family:Helvetica;font-weight:bold;width:2em;text-align:center;letter-spacing:-0.5px}
+.u72{display:inline-block}
+.tw0{margin:0.5em 0;background-color:#eeece1}
+.tw0 .kwy, .tw0 .tgi{float:left;color:#333;letter-spacing:0.5px;font-weight:bold;font-size:100%;text-transform:uppercase;font-family:Helvetica}
+.tw0 .kwy:after, .tw0 .tgi:after{content:":";margin-right:0.5em}
+.yns, .hlb .tgi, .bl7 .tgi, .r6w .kwy, .r6w .tgi, .vs7 .tgi, .cwg .tgi, .ey7 .tgi, .ywk .tgi, .zhq .tgi, .pj4 .tgi, .sdd .tgi, .par .tgi, .ne7 .tgi, .w2z .tgi{border-bottom:1px #ccc solid;padding-bottom:2px;margin-bottom:0.3em}
+.nwz{color:#666;border-bottom:3px silver solid;font-family:Helvetica;font-weight:bold;display:inline-block;position:relative;top:3px}
+.hlb .nwz{border-bottom-color:yellowgreen}
+.bl7 .nwz{border-bottom-color:#9400D3}
+.cwg .nwz{border-bottom-color:hotpink}
+.ne7 .nwz{border-bottom-color:#09E}
+.e7f .nwz{border-bottom-color:#0072c6}
+.sdd .nwz{border-bottom-color:darkorange}
+.r6w .nwz{border-bottom-color:darkorange}
+.ywk .nwz, .vs7 .nwz, .w2z .nwz, .pj4 .nwz, .ey7 .nwz{border-bottom-color:#3CB371}
+.sdd p, .ywk p, .zhq p, .vs7 p, .w2z p, .pj4 p, .ey7 p{text-indent:1.5em}
+.gjy{float:right;width:13px;height:6px;cursor:pointer;position:relative;bottom:-10px;padding:0 .1em .3em .3em}
+p.p7c, .cie, .ne7 .tqa{color:#369;font-size:95%;font-family:Helvetica;letter-spacing:0.3px}
+.p7c em{font-family:Helvetica;font-style:normal;font-weight:bold}
+.qxr, .gsu{color:gray;font-size:80%;font-family:Helvetica}
+.gsu{font-size:85%;letter-spacing:0}
+.tw0 .mcy{color:#333}
+.uau .mcy{color:#369}
+.n9x, .jpx{text-decoration:none;color:royalblue}
+.iuf{color:black;font-weight:normal;font-size:80%}
+.ebf{text-indent:-.9em}
+.ebf:before{content:"\025ca\020";font-size:90%}
+ol.ocy, ol.ozp{counter-reset:n}
+ol.ocy li:before, ol.ozp li:before{counter-increment:n;content:counter(n,lower-alpha)". ";color:#ff7e1e;position:absolute;left:1em;font-family:Helvetica;font-weight:bold}
+ol.ozp li:before{left:2em}
+ol.ozp{padding-left:1em}
+.wf6{float:right;white-space:nowrap}
+.i4g{width:175px;vertical-align:text-bottom}
+.iho{width:12px;position:relative;left:-173px;top:-1px;transition:left 1s}
+.fx6{font-family:"Verdana","Lucida Sans Unicode","Arial Unicode MS"}
+.x8g{color:#E68A00;font-family:Helvetica}
+.q6s{color:#A6E;font-family:Helvetica}
+.iva{vertical-align:middle}
+.uju{clear:both;background-color:#f0f2fc;border-radius:9px 9px 9px 9px;border:1px #00A2E8 solid;padding:.2em .5em .3em .5em;margin:0.5em}
+.una{color:#F63;font-family:verdana;font-variant:small-caps;font-weight:bold;font-size:105%}
+.uau{color:#667;font-size:90%}
+.sgt, .rbw, .ymr{color:#666;font-family:verdana}
