@@ -14,7 +14,8 @@ h1.bih .snr span, h2.qih .snr span:before, .aws{font-weight:normal}
 h1.bih, h2.qih, h3.aws{display:inline-block}
 .bih+.aws, .qih+.aws, .kyi+.uzu .eet{padding-left:0.3em}
 h3.aws{font-size:90%}
-h2.qih .snr, .vy5 .eds, .hlb .eds, .tno .eds{font-size:110%}
+.vy5 .eds, .hlb .eds, .tno .eds{font-size:110%}
+h2.qih .snr{font-size:115%}
 .mip{cursor:pointer}
 .hq2 .mip, .oi9 .mip, .sqy .mip{margin-left:0.6em;width:18px;vertical-align:text-top}
 .w2p .mip{width:14px;margin-right:0.3em}
@@ -24,19 +25,19 @@ h2.qih .snr, .vy5 .eds, .hlb .eds, .tno .eds{font-size:110%}
 .vy5 .eds, .hlb .eds, .tno .eds, .cwg .eds, .mcy{color:#369}
 .mcy{letter-spacing:0.5px;font-size:105%;color:chocolate;font-weight:bold;letter-spacing:-0.5px}
 .hlb .eds{color:royalblue}
-.hlb .eds:before{content:"-";color:black;padding-right:2px}
-.f1v+.eds:before, .eds~.eds:before{content:"";padding-right:0}
+.hlb .tqa .eds:first-child:before{content:"-";color:black;padding-right:2px}
 .seu, .kyi{font-size:90%;white-space:nowrap;padding-right:0.2em}
 .zjt, .kly .eet, .aws .eet, .uzu .eet{color:teal;font-style:italic;font-size:85%;font-family:Helvetica;font-weight:normal;letter-spacing:0.5px}
-.seu{font-family:"Verdana";color:#757580;background-color:#F3F6FE;letter-spacing:-.5px}
+.seu, .seu .eet{font-family:"Verdana";color:#757580;background-color:#F3F6FE;letter-spacing:-.5px}
 .ity{font-style:italic}
 .kyi, .kyi .eet{font-family:"Lucida Sans Unicode","Arial Unicode MS";color:#807575;padding-left:0.3em;background-color:#FEF3F9}
-.kyi .eet{padding:0}
+.seu .eet, .kyi .eet{font-family:verdana;white-space:normal;letter-spacing:-.5px;padding:0}
+.kly .seu .eet, .kly .kyi .eet{font-size:100%}
 .kly .kyi{margin-right:0.5em}
-.lxv, .nq3, .c4d li{margin-bottom:0.2em}
+.lxv, .nq3, .c4d li{margin-bottom:0.1em}
 .lxv a{text-decoration:none;color:#36F;font-family:Helvetica}
 .lxv a+a{margin-left:0.6em}
-.c4d, .hlb, .bl7, .r6w, .vs7, .cwg, .ey7, .ywk, .zhq, .pj4, .sdd, .par, .ne7, .w2z{margin-bottom:0.8em}
+.c4d, .hlb, .bl7, .r6w, .vs7, .cwg, .ey7, .ywk, .zhq, .pj4, .sdd, .par, .ne7, .w2z, .bcr{margin-bottom:0.6em}
 .kly{margin-top:0.5em}
 .f1v{font-weight:bold;color:sienna;font-family:"Trebuchet MS"}
 .wy7, .wtq{color:#090;font-size:95%;font-family:Helvetica;font-weight:normal}
@@ -47,9 +48,9 @@ h2.qih .snr, .vy5 .eds, .hlb .eds, .tno .eds{font-size:110%}
 .tw0{margin:0.5em 0;background-color:#eeece1}
 .tw0 .kwy, .tw0 .tgi{float:left;color:#333;letter-spacing:0.5px;font-weight:bold;font-size:100%;text-transform:uppercase;font-family:Helvetica}
 .tw0 .kwy:after, .tw0 .tgi:after{content:":";margin-right:0.5em}
-.yns, .hlb .tgi, .bl7 .tgi, .r6w .kwy, .r6w .tgi, .vs7 .tgi, .cwg .tgi, .ey7 .tgi, .ywk .tgi, .zhq .tgi, .pj4 .tgi, .sdd .tgi, .par .tgi, .ne7 .tgi, .w2z .tgi{border-bottom:1px #ccc solid;padding-bottom:2px;margin-bottom:0.3em}
-.nwz{color:#666;border-bottom:3px silver solid;font-family:Helvetica;font-weight:bold;display:inline-block;position:relative;top:3px}
-.hlb .nwz{border-bottom-color:yellowgreen}
+.yns, .hlb .tgi, .bl7 .tgi, .r6w .kwy, .r6w .tgi, .vs7 .tgi, .cwg .tgi, .ey7 .tgi, .ywk .tgi, .zhq .tgi, .pj4 .tgi, .sdd .tgi, .par .tgi, .ne7 .tgi, .w2z .tgi, .bcr h3.x7r{border-bottom:1px #ccc solid;padding-bottom:2px;margin-bottom:0.3em}
+.nwz, .ach{color:#666;border-bottom:3px silver solid;font-family:Helvetica;font-weight:bold;display:inline-block;position:relative;top:3px}
+.hlb .nwz, .ach{border-bottom-color:yellowgreen}
 .bl7 .nwz{border-bottom-color:#9400D3}
 .cwg .nwz{border-bottom-color:hotpink}
 .ne7 .nwz{border-bottom-color:#09E}
@@ -84,3 +85,12 @@ ol.ozp{padding-left:1em}
 .una{color:#F63;font-family:verdana;font-variant:small-caps;font-weight:bold;font-size:105%}
 .uau{color:#667;font-size:90%}
 .sgt, .rbw, .ymr{color:#666;font-family:verdana}
+.utg a{color:royalblue;font-weight:bold;text-decoration:none}
+.utg li{display:inline}
+.utg li+li:before{content:",\020"}
+li.jk5{font-size:115%}
+li.jk5 a{color:#36C}
+li.p3q{font-size:105%}
+li.pz3{font-size:95%}
+li.y4a{font-size:85%}
+li.y4a a{color:#36E}
