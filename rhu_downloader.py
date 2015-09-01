@@ -27,8 +27,8 @@ from multiprocessing import Pool
 from collections import OrderedDict
 
 
-MAX_PROCESS = 20
-STEP = 5000
+MAX_PROCESS = 25
+STEP = 25000
 F_WORDLIST = 'wordlist.txt'
 
 
@@ -129,7 +129,7 @@ class downloader:
     def makeword(self, page, word, words, logs, d_app):
         pass
 
-    def formatEntry(self, key, line, crefs, logs):
+    def formatEntry(self, key, line, crefs, links, logs):
         pass
 
     def getpage(self, link, BASE_URL=''):
@@ -178,14 +178,18 @@ class downloader:
         return 'a' if flag else 'w'
 
     def __dumpwords(self, sdir, words, sfx='', finished=True):
+        f = fullpath('rawhtml.txt', sfx, sdir)
         if len(words):
-            f = fullpath('rawhtml.txt', sfx, sdir)
             mod = self.__mod(sfx)
             fw = open(f, mod)
             try:
                 [fw.write('\n'.join([en[0], en[1], '</>\n'])) for en in words]
             finally:
                 fw.close()
+        elif not path.exists(f):
+            fw = open(f, 'w')
+            fw.write('\n')
+            fw.close()
         if sfx and finished:
             removefile(fullpath('failed.txt', '', sdir))
             l = -len(sfx)
@@ -200,23 +204,51 @@ class downloader:
                 removefile(nf)
             os.rename(f, nf)
 
+    def is_uni_word(self, key, ref, links):
+        uni = False
+        ps = re.compile(r'[\s\-\'/]|\.$')
+        uc = ps.sub(r'', key).lower()
+        if uc != ps.sub(r'', ref):
+            if not ref in links:
+                links[ref] = [key]
+                uni = True
+            else:
+                uni = True
+                for c in links[ref]:
+                    if uc == ps.sub(r'', c).lower():
+                        uni = False
+                        break
+                if uni:
+                    links[ref].append(key)
+        return uni
+
     def __fetchdata_and_make_mdx(self, arg, part, suffix=''):
-        sdir, d_app = arg['dir'], OrderedDict()#, arg['d_all']
-        words, logs, crefs, count, failed = [], [], {}, 1, []
+        sdir, d_app = arg['dir'], OrderedDict()
+        words, logs, crefs, count, failed, links = [], [], OrderedDict(), 1, [], {}
         leni = len(part)
+        ps = re.compile(r'[\s\-\'/]|\.$')
         while leni:
             for cur, url in part:
                 if count % 100 == 0:
                     print ".",
                     if count % 1000 == 0:
-                        print "*",
+                        print count,
                 try:
-                    page = self.getpage(self.makeurl(url))
-                    if page[1]:
-                        if self.makeword(page, cur, words, logs, d_app):
-                            crefs[url] = cur
-                            count += 1
-                    elif page[0] != 404:
+                    status, page = self.getpage(self.makeurl(url.replace('/', '%2f')))
+                    if page:
+                        if status == 200:
+                            if self.makeword(page, cur, words, logs, d_app):
+                                url = urllib.unquote(url).strip().lower()
+                                crefs[url] = cur
+                                count += 1
+                        else:
+                            ref = self.getcref(urllib.unquote(page), False)
+                            if ref:
+                                ref = ref.strip().lower()
+                                if self.is_uni_word(cur, ref, links):
+                                    words.append([cur, ''.join(['@@@LINK=', ref])])
+                                    count += 1
+                    elif status != 404:
                         print "%s failed, retry automatically later" % cur
                         failed.append((cur, url))
                     else:
@@ -232,7 +264,7 @@ class downloader:
             else:
                 leni = lenr
                 part, failed = failed, []
-        print "%s browsed" % info(count),
+        print "%s browsed" % info(count-1),
         if crefs:
             mod = self.__mod(path.exists(fullpath('cref.txt', base_dir=sdir)))
             dump(''.join(['\n'.join(['\t'.join([k, v]) for k, v in crefs.iteritems()]), '\n']), ''.join([sdir, 'cref.txt']), mod)
@@ -287,7 +319,7 @@ class downloader:
         words, logs = [], []
         crefs = self.getcreflist('cref.txt', dir)
         fw = open(fullpath(''.join([dir, self.DIC_T, path.extsep, 'txt'])), 'w')
-        d_uni = {}
+        d_uni, links = {}, {}
         try:
             for i in xrange(1, times+1):
                 sdir = ''.join([dir, '%d'%i, path.sep])
@@ -298,7 +330,7 @@ class downloader:
                     if ln == '</>':
                         ukey = lns[0].lower().strip()
                         if not ukey in d_uni:
-                            entry = self.formatEntry(lns[0], lns[1], crefs, logs)
+                            entry = self.formatEntry(lns[0], lns[1], crefs, links, logs)
                             if entry:
                                 fw.write(''.join([entry, '\n']))
                                 d_uni[ukey] = None
@@ -321,7 +353,7 @@ def f_start((obj, arg)):
     return obj.start(arg)
 
 
-def multiprocess_fetcher(d_all, wordlist, obj, base):
+def multiprocess_fetcher(d_refs, wordlist, obj, base):
     times = int(len(wordlist)/STEP)
     pl = [wordlist[i*STEP: (i+1)*STEP] for i in xrange(0, times)]
     pl.append(wordlist[times*STEP:])
@@ -362,7 +394,7 @@ def multiprocess_fetcher(d_all, wordlist, obj, base):
         leni = lenr
     dt = OrderedDict()
     for k, v in d_app.iteritems():
-        if not k in d_all:
+        if not k in d_refs:
             dt[k] = v
     return times, dt.items()
 
@@ -420,7 +452,7 @@ class dic_downloader(downloader):
         self.__base_url = 'http://dictionary.reference.com/browse/'
 
     def makeurl(self, cur):
-        return ''.join([self.__base_url, urllib.quote(cur)])
+        return ''.join([self.__base_url, cur])
 
     def getcref(self, url, raiseErr=True):
         p = re.compile(''.join([self.__base_url, r'(.+)(?=$)']), re.I)
@@ -459,53 +491,46 @@ class dic_downloader(downloader):
     def __rec_url(self, div, d_app):
         p = re.compile(r'<a\s+href="http://dictionary\.reference\.com/browse/([^<>"]+)">\s*(.+?)\s*</a>', re.I)
         for url, word in p.findall(div):
-            if not word in d_app:
-                d_app[word] = url
+            url = urllib.unquote(url).strip().lower()
+            if not url in d_app:
+                d_app[url] = word
 
-    def makeword(self, rawpage, word, words, logs, d_app):
-        status, page, exist = rawpage[0], rawpage[1], False
-        if status == 301:
-            ref = self.getcref(page, False)
-            if ref:
-                words.append([word, ''.join(['@@@LINK=', urllib.unquote(ref)])])
-                exist = True
-            else:
-                logs.append("E01: '%s' = wrong URL, please check" % word)
+    def makeword(self, page, word, words, logs, d_app):
+        exist = False
+        page = self.__preformat(page)
+        p = re.compile(r'<div\s+class="nearby-words-inner-box"[^<>]*>.+?</div>', re.I)
+        m = p.search(page)
+        if not m:
+            print "'%s' has no Nearby words" % word
+            logs.append("W01:'%s' has no Nearby words" % word)
         else:
-            page = self.__preformat(page)
-            p = re.compile(r'<div\s+class="nearby-words-inner-box"[^<>]*>.+?</div>', re.I)
+            self.__rec_url(m.group(0), d_app)
+        p = re.compile(r'<section[^<>]*\bid="source-luna"', re.I)
+        if not p.search(page):
+            logs.append("I02: '%s' is not found in DIC" % word)
+        else:
+            p = re.compile('<h1\s+class="head-entry">(.+?)</h1>', re.I)
             m = p.search(page)
             if not m:
-                print "'%s' has no Nearby words" % word
-                logs.append("W01:'%s' has no Nearby words" % word)
-            else:
-                self.__rec_url(m.group(0), d_app)
-            p = re.compile(r'<section[^<>]*\bid="source-luna"', re.I)
-            if not p.search(page):
-                logs.append("I02: '%s' is not found in DIC" % word)
-            else:
-                p = re.compile('<h1\s+class="head-entry">(.+?)</h1>', re.I)
-                m = p.search(page)
-                if not m:
-                    raise AssertionError('E01:%s has no title' % word)
-                ttl = self.__get_text(m.group(1))
-                if not self.__cmpkt(word.strip().lower(), ttl.strip().lower()):
-                    logs.append("W02: '%s' vs '%s'\t:key is not equal to title" % (word, ttl))
-                p = re.compile(r'(<section\s+id="source-luna"[^<>]*>.+?)\s*<div\s+class="source-meta">\s*Dictionary\.com\s+Unabridged.+?</div>\s*(</section>)', re.I)
-                m1 = p.search(page)
-                exm, difc = '', ''
-                p = re.compile(r'<section\s+id="source-example-sentences"[^<>]*>.+?</section>', re.I)
-                m2 = p.search(page)
-                if m2:
-                    exm = m2.group(0)
-                p = re.compile(r'<section\s+id="difficulty-box"[^<>]*>.+?</section>', re.I)
-                m3 = p.search(page)
-                if m3:
-                    difc = m3.group(0)
-                worddef = ''.join([m1.group(1), m1.group(2), exm, difc])
-                worddef = self.cleansp(worddef).strip()
-                words.append([word, worddef])
-                exist = True
+                raise AssertionError('E01:%s has no title' % word)
+            ttl = self.__get_text(m.group(1))
+            if not self.__cmpkt(word.strip().lower(), ttl.strip().lower()):
+                logs.append("W02: '%s' vs '%s'\t:key is not equal to title" % (word, ttl))
+            p = re.compile(r'(<section\s+id="source-luna"[^<>]*>.+?)\s*<div\s+class="source-meta">\s*Dictionary\.com\s+Unabridged.+?</div>\s*(</section>)', re.I)
+            m1 = p.search(page)
+            p = re.compile(r'<section\s+class="related-words-box"[^<>]*>.+?</section>', re.I)
+            mr = p.search(page)
+            rlt = mr.group(0) if mr else ''
+            p = re.compile(r'<section\s+id="source-example-sentences"[^<>]*>.+?</section>', re.I)
+            mx = p.search(page)
+            exm = mx.group(0) if mx else ''
+            p = re.compile(r'<section\s+id="difficulty-box"[^<>]*>.+?</section>', re.I)
+            md = p.search(page)
+            difc = md.group(0)if md else ''
+            worddef = ''.join([m1.group(1), m1.group(2), rlt, exm, difc])
+            worddef = self.cleansp(worddef).strip()
+            words.append([word, worddef])
+            exist = True
         return exist
 
     def __repaud(self, m):
@@ -516,7 +541,10 @@ class dic_downloader(downloader):
 
     def __tslink(self, m):
         cls = 'n9x' if m.group(1)=='roman' else 'jpx'
-        return ''.join([cls, m.group(2), 'entry://', urllib.quote(m.group(3))])
+        return ''.join([cls, m.group(2), 'entry://', m.group(3).replace('/', '%2F')])
+
+    def __tslink2(self, m):
+        return ''.join(['entry://', m.group(1).replace('/', '%2F')])
 
     def __repanc(self, m, idl):
         id = randomstr(4)
@@ -620,13 +648,15 @@ class dic_downloader(downloader):
         'tail-box tail-type-synstudy pm-btn-spot': 'sdd', 'tail-box tail-type-popular_references pm-btn-spot': 'par',
         'tail-box tail-type-cites pm-btn-spot': 'ne7', 'ts normal': 'sgt', 'ts boldface': 'rbw',
         'usage-alert': 'uau', 'tail-box tail-type-confusables_note pm-btn-spot': 'w2z',
-        'ts lightface': 'ymr'}
+        'ts lightface': 'ymr', 'content': 'nwt'}
         self.hd = {'main-header oneClick-disabled head-big': 'hq2', 'luna-data-header': 'kly',
         'main-header oneClick-disabled head-medium': 'oi9', 'main-header oneClick-disabled head-small': 'sqy',
         'usage-alert-header': 'una'}
         self.sec = {'luna-box': 'yik', 'def-pbk ce-spot': 'nq3', 'usage-alert-block ce-spot': 'uju',
-        'source-wrapper source-example-sentences is-pm-btn-show pm-btn-spot': 'e7f'}
-        self.h3 = {'head-entry-variants': 'aws'}
+        'source-wrapper source-example-sentences is-pm-btn-show pm-btn-spot': 'e7f',
+        'related-words-box': 'bcr'}
+        self.h3 = {'head-entry-variants': 'aws', 'title': 'x7r'}
+        self.li = {'size-1': 'jk5', 'size-2': 'p3q', 'size-3': 'pz3', 'size-4': 'y4a'}
         if tag=='div' and cls in self.div:
             return ''.join([tag, m.group(2), self.div[cls]])
         elif tag=='span' and cls in self.span:
@@ -637,6 +667,8 @@ class dic_downloader(downloader):
             return ''.join([tag, m.group(2), self.hd[cls]])
         elif tag=='h3' and cls in self.h3:
             return ''.join([tag, m.group(2), self.h3[cls]])
+        elif tag=='li' and cls in self.li:
+            return ''.join([tag, m.group(2), self.li[cls]])
         elif tag=='p' and cls=='partner-example-text':
             return ''.join([tag, m.group(2), 'p7c'])
         elif tag=='h1' and cls=='head-entry':
@@ -645,25 +677,26 @@ class dic_downloader(downloader):
             return ''.join([tag, m.group(2), 'qih'])
         elif tag=='ol' and cls=='def-sub-list':
             return ''.join([tag, m.group(2), 'ocy'])
+        elif tag=='ul' and cls=='list-vertical':
+            return ''.join([tag, m.group(2), 'utg'])
         else:
             return m.group(0)
 
-    def __repprn(m):
+    def __repprn(self, m):
         prn = m.group(1)
         return prn.replace('"eds"', '"b7a"').replace('"mcy"', '"mfe"').replace('"eet"', '"ity"')
 
-    def formatEntry(self, key, line, crefs, logs):
+    def formatEntry(self, key, line, crefs, links, logs):
         if line.startswith('@@@'):
-            word, ref = line.split('=')
-            ref = ref.strip().lower()
+            lk, ref = line.split('=')
             if ref in crefs:
-                p = re.compile(r'[\s\-\']')
-                if p.sub(r'', key).lower() != p.sub(r'', crefs[ref]).lower():
-                    return '\n'.join([key, ''.join(['@@@LINK=', crefs[ref]]), '</>'])
+                p = re.compile(r'[\s\-\'/]|\.$')
+                if p.sub(r'', key).lower()!=p.sub(r'', crefs[ref]).lower() and self.is_uni_word(key, ref, links):
+                    return '\n'.join([key, ''.join(['@@@LINK=', crefs[ref].replace('/', '%2F')]), '</>'])
                 else:
                     return ''
             else:
-                logs.append("E02: The ref target of '%s' is not found" % word)
+                logs.append("E02: The ref target of '%s' is not found" % key)
                 return ''
         n = 1
         while n:
@@ -700,6 +733,8 @@ class dic_downloader(downloader):
         line = p.sub(r'', line)
         p = re.compile(r'(?<=<a class=")dbox-xref dbox-(roman|bold)(" href=")http://dictionary\.reference\.com/browse/([^<>"]+)(?=">)', re.I)
         line = p.sub(self.__tslink, line)
+        p = re.compile(r'(?<=<a href=")http://dictionary\.reference\.com/browse/([^<>"]+)(?=">)', re.I)
+        line = p.sub(self.__tslink2, line)
         p = re.compile(r'<a\s+href="http://www\.thesaurus\.com/browse/[^<>"]+">(.+?)</a>', re.I)
         line = p.sub(r'\1', line)
         p = re.compile(r'(?<=<img class=)[^<>]+?(src=)[\'"](http://static\.sfdict\.com/dictstatic/dictionary/graphics/luna/)([^<>/\'"]+)[^<>]+(?=>)', re.I)
@@ -711,7 +746,7 @@ class dic_downloader(downloader):
             q = re.compile(r'(<header class="main-header oneClick-disabled head-(?:big|medium|small)">)', re.I)
             line = q.sub(''.join([r'\1', dcbox]), line, 1)
         line = p.sub('', line)
-        p = re.compile(r'(<a href="[^<>"]+")(?=>)', re.I)
+        p = re.compile(r'(<a href="http://[^<>"]+")(?=>)', re.I)
         line = p.sub(r'\1 target="_blank"', line)
         p = re.compile(r'(\s*[,\.]\s*)(</a>)', re.I)
         line = p.sub(r'\2\1', line)
@@ -737,6 +772,8 @@ class dic_downloader(downloader):
         line = p.sub(self.__fmttail, line)
         p = re.compile(r'(?<=div class="tail-elements">)(.+?)(?=</div>)', re.I)
         line = p.sub(self.__fmttelm, line)
+        p = re.compile(r'<header>\s*(<h3 class="title">)(Related Words?)(</h3>)\s*</header>', re.I)
+        line = p.sub(r'\1<span class="ach">\2</span><img src="ac.png" class="gjy" onclick="ytu(this)">\3', line)
         p = re.compile(r'(<(?:div|section)[^<>]*?)\bid="([^<>"]+)"([^<>]*>)', re.I)
         idl = {}
         line = p.sub(lambda m: self.__repanc(m, idl), line)
@@ -746,8 +783,8 @@ class dic_downloader(downloader):
         while n:
             p = re.compile(r'(<\w+[^<>]+?)\s*data-[\-\w]+=(?:"[^<>"]*"|\'[^<>\']*\')', re.I)
             line, n = p.subn(r'\1', line)
-        p = re.compile(r'(<span class="pron ipapron">[^<>]+?</span>)\s*\(<span[^<>]+>Show IPA</span>\)\s*[\,\.]?\s*', re.I)
-        line = p.sub(r'\1', line)
+        p = re.compile(r'(?<=</span>)\s*\(<span[^<>]+>Show IPA</span>\)', re.I)
+        line = p.sub(r'', line)
         p = re.compile(r'\s*(</span>)\s*(?=<span class="pron ipapron">)', re.I)
         line = p.sub(r' \1 ', line)
         p = re.compile(r'(?<=<span class="def-number">)(\d+)\.(?=</span>)', re.I)
@@ -762,7 +799,7 @@ class dic_downloader(downloader):
         line = p.sub(self.__fmtexphd, line)
         p = re.compile(r'(<div class="partner-example-credentials"[^<>]*>)(.+?)(?=</div>)', re.I)
         line = p.sub(self.__fmtcred, line)
-        p = re.compile(r'(?<=<)(span|div|header|section|h[1-3]|p|ol)\s*(\sclass=")([^<>"]+?)\s*(?=")', re.I)
+        p = re.compile(r'(?<=<)(span|div|header|section|h[1-3]|p|ol|li|ul)\s*(\sclass=")([^<>"]+?)\s*(?=")', re.I)
         line = p.sub(self.__repcls, line)
         p = re.compile(r'(</?)(?:header|section)(?=[^>]*>)', re.I)
         line = p.sub(r'\1div', line)
@@ -770,6 +807,10 @@ class dic_downloader(downloader):
         line = p.sub(r'', line)
         p = re.compile(r'(?<=<span class="seu">)(.+?)(?=<span class="kyi">)', re.I)
         line = p.sub(self.__repprn, line)
+        p = re.compile(r'(?<=<span class=")(?:ity|eet)(">[^<>]+)(</span>)(\s*[\,\.])', re.I)
+        line = p.sub(r'eet\1\3\2', line)
+        p = re.compile(r'(?<=<span class=")ity(?=">[^<>]+?\,\s*</span>)', re.I)
+        line = p.sub(r'eet', line)
         src = ''.join(['<script type="text/javascript"src="r5.js"></script><script>if(typeof(w2z)=="undefined"){var _l=document.getElementsByTagName("link");var _r=/',
         self.DIC_T, '.css$/;for(var i=_l.length-1;i>=0;i--)with(_l[i].href){var _m=match(_r);if(_m&&_l[i].id=="khl"){document.write(\'<script src="\'+replace(_r,"r5.js")+\'"type="text/javascript"><\/script>\');break;}}}</script>'])
         line = ''.join(['<link id="khl"rel="stylesheet"href="', self.DIC_T, '.css"type="text/css"><div class="khr">', line, src, '</div>'])
@@ -790,6 +831,9 @@ if __name__=="__main__":
     dic_dl.login()
     if dic_dl.session:
         d_all = makewordlist(F_WORDLIST)
+        d_refs = OrderedDict()
+        for k, v in d_all.iteritems():
+            d_refs[urllib.unquote(v).strip().lower()] = k
         args = parser.parse_args()
         dir = ''.join([dic_dl.DIC_T, path.sep])
         if args.patch == 'p':
@@ -803,20 +847,25 @@ if __name__=="__main__":
                 if path.exists(fullpath('appd.txt', base_dir=sdir)):
                     dt.update(getwordlist(''.join([sdir, 'appd.txt'])))
             if args.file and path.isfile(fullpath(args.file)):
-                dt.update(getwordlist(args.file, tolower=True))
+                for k, v in getwordlist(args.file):
+                    dt[urllib.unquote(v).strip().lower()] = k
             for k, v in dt.iteritems():
-                if not k in d_all:
-                    wordlist.append((k, v))
-                    d_all[k] = v
+                uk = urllib.unquote(k).strip().lower()
+                if not uk in d_refs:
+                    wordlist.append((v, k))
+                    d_refs[uk] = v
         else:
             wordlist, base = d_all.items(), 0
         while wordlist:
-            blks, addlist = multiprocess_fetcher(d_all, wordlist, dic_dl, base)
+            blks, addlist = multiprocess_fetcher(d_refs, wordlist, dic_dl, base)
             base += blks
-            wordlist = addlist
+            wordlist = []
+            for k, v in addlist:
+                wordlist.append((v, k))
             if addlist:
-                d_all.update(addlist)
-        dump(''.join(['\n'.join(['\t'.join([k, v]) for k, v in d_all.iteritems()]), '\n']), F_WORDLIST)
+                print "Downloading additional words..."
+                d_refs.update(addlist)
+        dump(''.join(['\n'.join(['\t'.join([v, k]) for k, v in d_refs.iteritems()]), '\n']), F_WORDLIST)
         if is_complete(fullpath(dir)):
             dic_dl.combinefiles(dir)
         print "Done!"
