@@ -41,9 +41,9 @@ h2.qih .snr{font-size:115%}
 .kly{margin-top:0.5em}
 .f1v{font-weight:bold;color:sienna;font-family:"Trebuchet MS"}
 .wy7, .wtq{color:#090;font-size:95%;font-family:Helvetica;font-weight:normal}
-.uy4{padding:0.3em 0 0 1.5em}
-.lno{display:inline-block;position:absolute;left:2px}
-.lno, .bl7 .eds, .r6w .eds, .sdd .joq{color:dimgray;font-family:Helvetica;font-weight:bold;width:2em;text-align:center;letter-spacing:-0.5px}
+.uy4{margin:0.3em 0 0 1.5em;position:relative}
+.lno{display:inline-block;position:absolute;left:-1.6em;font-size:95%}
+.lno, .bl7 .eds, .r6w .eds, .sdd .joq{color:dimgray;font-family:Helvetica;font-weight:bold;letter-spacing:-1px}
 .u72{display:inline-block}
 .tw0{margin:0.5em 0;background-color:#eeece1}
 .tw0 .kwy, .tw0 .tgi{float:left;color:#333;letter-spacing:0.5px;font-weight:bold;font-size:100%;text-transform:uppercase;font-family:Helvetica}
@@ -71,9 +71,9 @@ p.p7c, .cie, .ne7 .tqa{color:#369;font-size:95%;font-family:Helvetica;letter-spa
 .ebf{text-indent:-.9em}
 .ebf:before{content:"\025ca\020";font-size:90%}
 ol.ocy, ol.ozp{counter-reset:n}
-ol.ocy li:before, ol.ozp li:before{counter-increment:n;content:counter(n,lower-alpha)". ";color:#ff7e1e;position:absolute;left:1em;font-family:Helvetica;font-weight:bold}
-ol.ozp li:before{left:2em}
-ol.ozp{padding-left:1em}
+ol.ocy li:before, ol.ozp li:before{counter-increment:n;content:counter(n,lower-alpha)". ";color:#ff7e1e;position:absolute;left:-1em;font-family:Helvetica;font-weight:bold}
+ol.ozp{margin-left:1em}
+ol.ozp li:before{left:0}
 .wf6{float:right;white-space:nowrap}
 .i4g{width:175px;vertical-align:text-bottom}
 .iho{width:12px;position:relative;left:-173px;top:-1px;transition:left 1s}
