@@ -14,18 +14,19 @@ h1.bih .snr span, h2.qih .snr span:before, .aws{font-weight:normal}
 h1.bih, h2.qih, h3.aws{display:inline-block}
 .bih+.aws, .qih+.aws, .kyi+.uzu .eet{padding-left:0.3em}
 h3.aws{font-size:90%}
-.vy5 .eds, .hlb .eds, .tno .eds{font-size:110%}
+.vy5 .eds, .tno .eds{font-size:110%}
 h2.qih .snr{font-size:115%}
 .mip{cursor:pointer}
 .hq2 .mip, .oi9 .mip, .sqy .mip{margin-left:0.6em;width:18px;vertical-align:text-top}
 .w2p .mip{width:14px;margin-right:0.3em}
 .k0a, .oi9, .sqy{margin-bottom:1em}
 .y2u+.lxv, .thm, .tno, .rof, .uh3{margin-top:1em}
-.eds, .jpx, .zsc, .mcy, .n7z, .b7a{font-weight:bold}
+.eds, .jpx, .zsc, .mcy, .n7z, .b7a, .kly .f1v{font-weight:bold}
 .vy5 .eds, .hlb .eds, .tno .eds, .cwg .eds, .mcy{color:#369}
 .mcy{letter-spacing:0.5px;font-size:105%;color:chocolate;font-weight:bold;letter-spacing:-0.5px}
 .hlb .eds{color:royalblue}
-.hlb .tqa .eds:first-child:before{content:"-";color:black;padding-right:2px}
+.hlb .tqa .eds:first-child:before{content:"-";color:black;position:absolute;left:-.8em}
+.hlb .tqa{position:relative;margin-left:1em}
 .seu, .kyi{font-size:90%;white-space:nowrap;padding-right:0.2em}
 .zjt, .kly .eet, .aws .eet, .uzu .eet{color:teal;font-style:italic;font-size:85%;font-family:Helvetica;font-weight:normal;letter-spacing:0.5px}
 .seu, .seu .eet{font-family:"Verdana";color:#757580;background-color:#F3F6FE;letter-spacing:-.5px}
@@ -39,7 +40,7 @@ h2.qih .snr{font-size:115%}
 .lxv a+a{margin-left:0.6em}
 .c4d, .hlb, .bl7, .r6w, .vs7, .cwg, .ey7, .ywk, .zhq, .pj4, .sdd, .par, .ne7, .w2z, .bcr{margin-bottom:0.6em}
 .kly{margin-top:0.5em}
-.f1v{font-weight:bold;color:sienna;font-family:"Trebuchet MS"}
+.f1v{color:sienna;font-family:"Trebuchet MS"}
 .wy7, .wtq{color:#090;font-size:95%;font-family:Helvetica;font-weight:normal}
 .uy4{margin:0.3em 0 0 1.5em;position:relative}
 .lno{display:inline-block;position:absolute;left:-1.6em;font-size:95%}
