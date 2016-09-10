@@ -27,8 +27,8 @@ from multiprocessing import Pool
 from collections import OrderedDict
 
 
-MAX_PROCESS = 25
-STEP = 25000
+MAX_PROCESS = 20
+STEP = 13500
 F_WORDLIST = 'wordlist.txt'
 
 
@@ -117,21 +117,6 @@ class downloader:
         self.__session.headers['Origin'] = ORIGIN
         self.__session.headers['Referer'] = REF
 
-    def logout(self):
-        pass
-
-    def makeurl(self, cur):
-        pass
-
-    def getcref(self, url, raiseErr=True):
-        pass
-
-    def makeword(self, page, word, words, logs, d_app):
-        pass
-
-    def formatEntry(self, key, line, crefs, links, logs):
-        pass
-
     def getpage(self, link, BASE_URL=''):
         r = self.__session.get(''.join([BASE_URL, link]), timeout=10, allow_redirects=False)
         if r.status_code == 200:
@@ -141,38 +126,21 @@ class downloader:
         else:
             return (r.status_code, None)
 
-    def cleansp(self, html):
-        p = re.compile(r'\s+')
-        html = p.sub(' ', html)
-        p = re.compile(r'<!--[^<>]+?-->')
-        html = p.sub('', html)
-        p = re.compile(r'\s*<br/?>\s*')
-        html = p.sub('<br>', html)
-        p = re.compile(r'(\s*<br>\s*)*(<hr[^>]*>)(\s*<br>\s*)*', re.I)
-        html = p.sub(r'\2', html)
-        p = re.compile(r'(\s*<br>\s*)*(<(?:/?(?:div|p)[^>]*|br)>)(\s*<br>\s*)*', re.I)
-        html = p.sub(r'\2', html)
-        p = re.compile(r'\s*(<(?:/?(?:div|p|ul|li)[^>]*|br)>)\s*', re.I)
-        html = p.sub(r'\1', html)
-        p = re.compile(r'\s+(?=[,\.;\?\!])')
-        html = p.sub(r'', html)
-        p = re.compile(r'\s+(?=</?\w+>[\)\]\s])')
-        html = p.sub(r'', html)
-        return html
-
-    def getcreflist(self, file, base_dir=''):
+    def getcreflist(self, file, base_dir='', vask=True):
         words = readdata(file, base_dir)
         if words:
             p = re.compile(r'\s*\n\s*')
             words = p.sub('\n', words).strip()
-            crefs = {}
+            crefs = OrderedDict()
             for word in words.split('\n'):
                 k, v = word.split('\t')
+                v = v.replace('&amp;', '&')
                 crefs[urllib.unquote(k).strip().lower()] = v.strip()
-                crefs[v.strip().lower()] = v.strip()
+                if vask:
+                    crefs[v.strip().lower()] = v.strip()
             return crefs
         print("%s: No such file or file content is empty." % file)
-        return {}
+        return OrderedDict()
 
     def __mod(self, flag):
         return 'a' if flag else 'w'
@@ -234,7 +202,7 @@ class downloader:
                     if count % 1000 == 0:
                         print count,
                 try:
-                    status, page = self.getpage(self.makeurl(url.replace('/', '%2f')))
+                    status, page = self.getpage(self.makeurl(url.replace('/', '%2F')))
                     if page:
                         if status == 200:
                             if self.makeword(page, cur, words, logs, d_app):
@@ -252,7 +220,7 @@ class downloader:
                         print "%s failed, retry automatically later" % cur
                         failed.append((cur, url))
                     else:
-                        logs.append("I01: cannot find '%s', ignore" % cur)
+                        logs.append("I01:\tcannot find '%s', ignore" % cur)
                 except Exception, e:
                     import traceback
                     print traceback.print_exc()
@@ -318,32 +286,42 @@ class downloader:
             fw.close()
         words, logs = [], []
         crefs = self.getcreflist('cref.txt', dir)
+        self.links = self.getcreflist('links.txt', dir, False)
+        self.set_trs_tbl()
         fw = open(fullpath(''.join([dir, self.DIC_T, path.extsep, 'txt'])), 'w')
         d_uni, links = {}, {}
         try:
             for i in xrange(1, times+1):
                 sdir = ''.join([dir, '%d'%i, path.sep])
+                print sdir
                 file = fullpath('rawhtml.txt', base_dir=sdir)
                 lns = []
                 for ln in fileinput.input(file):
                     ln = ln.strip()
                     if ln == '</>':
-                        ukey = lns[0].lower().strip()
+                        key = lns[0].replace('&amp;', '&').strip()
+                        ukey = key.lower()
                         if not ukey in d_uni:
-                            entry = self.formatEntry(lns[0], lns[1], crefs, links, logs)
+                            entry = self.formatEntry(key, lns[1], crefs, links, logs)
                             if entry:
                                 fw.write(''.join([entry, '\n']))
                                 d_uni[ukey] = None
-                                words.append(lns[0])
+                                words.append(key)
+                        else:
+                            logs.append("I04:\tignore word %s" % key)
                         del lns[:]
                     elif ln:
                         lns.append(ln)
+            for k, v in self.links.iteritems():
+                lns.append('\n'.join([k, ''.join(['@@@LINK=', v]), '</>']))
+            fw.write('\n'.join(lns))
         finally:
             fw.close()
-        print "%s totally" % info(len(words))
+        print "%s and %s totally" % (info(len(words)), info(len(self.links), 'link'))
         fw = open(fullpath(''.join([dir, 'words.txt'])), 'w')
         fw.write('\n'.join(words))
         fw.close()
+        dump(''.join(['\n'.join(['\t'.join([k, v]) for k, v in self.links.iteritems()]), '\n']), ''.join([dir, 'links.txt']))
         if logs:
             mod = self.__mod(path.exists(fullpath('log.txt', base_dir=dir)))
             dump('\n'.join(logs), ''.join([dir, 'log.txt']), mod)
@@ -387,7 +365,7 @@ def multiprocess_fetcher(d_refs, wordlist, obj, base):
                     print arg[1]['dir']
                 break
             else:
-                dts = pool.map(f_start, args)#f_start(args[0])#for debug
+                dts = pool.map(f_start, args)#[f_start(args[0])]#for debug
                 [d_app.update(dict) for dict in dts]
         else:
             break
@@ -400,22 +378,29 @@ def multiprocess_fetcher(d_refs, wordlist, obj, base):
 
 
 def getlink(ap, dict):
-    p1 = re.compile(r'<li\s+class="result_list"><a\s+href="([^<>"]+)"', re.I)
-    for la in p1.findall(ap):
-        lp = getpage(la)
-        p2 = re.compile(r'<li\s+class="result_list"><a\s+href="http://dictionary\.reference\.com/browse/([^<>"]+)"[^<>]*>(.+?)</a>', re.I)
-        for url, word in p2.findall(lp):
-            dict[word] = url.replace('+', ' ')
+    p1 = re.compile(r'<div class="words-list">\s*<ul>(.+?)</ul>\s*</div>', re.I)
+    p2 = re.compile(r'<li>(.+?)</li>', re.I)
+    p3 = re.compile(r'<span class="word">([^<>]+)</span>', re.I)
+    p4 = re.compile(r'<a href="http://www\.dictionary\.com/browse/([^<>@]+?)">', re.I)
+    for li in p2.findall(p1.search(ap).group(1)):
+        m = p4.search(li)
+        if m:
+            word = p3.search(li).group(1)
+            url = m.group(1)
+            dict[word] = url
 
 
 def getalphadict(a):
     dict = OrderedDict()
-    ap = getpage(a)
-    while ap:
+    r = re.compile(r'[\n\r]+')
+    ap = r.sub('', getpage(a))
+    p = re.compile(r'<a href="http://www\.dictionary\.com/list/(\w)/(\d+)">Last', re.I)
+    m = p.search(ap)
+    w, count = m.group(1), int(m.group(2))
+    getlink(ap, dict)
+    for i in xrange(2, count+1):
+        ap = r.sub('', getpage(str(i), ''.join(['http://www.dictionary.com/list/', w, '/'])))
         getlink(ap, dict)
-        n = re.compile(r'<a class="lnkactive" href="/([^<>"]+)">NEXT', re.I)
-        m = n.search(ap)
-        ap = getpage(m.group(1), 'http://dictionary.reference.com/') if m else None
     return dict
 
 
@@ -425,8 +410,8 @@ def makewordlist(file):
         return OrderedDict(getwordlist(file))
     else:
         print "Get word list: start at %s" % datetime.now()
-        page = getpage('http://dictionary.reference.com/')
-        p = re.compile(r'<a\s+href="(http://dictionary\.reference\.com/list/\w)">\w</a>', re.I)
+        page = getpage('http://www.dictionary.com/')
+        p = re.compile(r'<a\s+href="(http://www\.dictionary\.com/list/\w/1)"[^<>]*>[^<>]+</a>', re.I)
         pool = Pool(10)
         alphadicts = pool.map(getalphadict, [a for a in p.findall(page)])
         dt = OrderedDict()
@@ -449,47 +434,42 @@ class dic_downloader(downloader):
 #RHU downloader
     def __init__(self):
         downloader.__init__(self, 'RHU')
-        self.__base_url = 'http://dictionary.reference.com/browse/'
+        self.__base_url = 'http://www.dictionary.com/browse/'
+        self.__re_d = {re.I: {}, 0: {}}
+        self.links = OrderedDict()
 
     def makeurl(self, cur):
         return ''.join([self.__base_url, cur])
 
+    def __rex(self, ptn, mode=0):
+        if ptn in self.__re_d[mode]:
+            pass
+        else:
+            self.__re_d[mode][ptn] = re.compile(ptn, mode) if mode else re.compile(ptn)
+        return self.__re_d[mode][ptn]
+
     def getcref(self, url, raiseErr=True):
-        p = re.compile(''.join([self.__base_url, r'(.+)(?=$)']), re.I)
+        p = self.__rex(''.join([self.__base_url, r'(.+)(?=$)']), re.I)
         m = p.search(url)
         if not m and raiseErr:
             raise AssertionError('%s : Wrong URL'%url)
         return m.group(1) if m else None
 
-    def __cmpkt(self, k, t):
-        rst = t.find(k)>-1 or k.find(t)>-1
-        if not rst:
-            p = re.compile(r'[ \-]')
-            t, k = p.sub(r'', t), p.sub(r'', k)
-            rst = t.find(k)>-1 or k.find(t)>-1
-        return rst
-
-    def __get_text(self, tag):
-        p = re.compile(r'</?[^<>]+>')
-        return p.sub(r'', tag)
-
     def __preformat(self, page):
-        p = re.compile(r'[\n\r]+')
+        p = self.__rex(r'[\n\r]+')
         page = p.sub(r'', page)
-        p = re.compile(r'[\t]+|&nbsp;')
+        p = self.__rex(r'[\t]+|&nbsp;')
         page = p.sub(r' ', page)
-        p = re.compile(r'<!--[^<>]+?-->')
+        p = self.__rex(r'<!--[^<>]+?-->')
         page = p.sub(r'', page)
-        p = re.compile(r'<span\s+class="oneClick-link(?:\s+oneClick-available)?">([^<>]*?)</span>', re.I)
-        page = p.sub(r'\1', page)
-        p = re.compile(r'(<div\s+class=[\'"]sent-wrap [^<>]*>)', re.I)
+        p = self.__rex(r'(<div\s+class=[\'"]sent-wrap [^<>]*>)', re.I)
         page = p.sub(r'', page)
-        p = re.compile(r'(</?)strong(?=[^>]*>)')
+        p = self.__rex(r'(</?)strong(?=[^>]*>)')
         page = p.sub(r'\1b', page)
         return page
 
     def __rec_url(self, div, d_app):
-        p = re.compile(r'<a\s+href="http://dictionary\.reference\.com/browse/([^<>"]+)">\s*(.+?)\s*</a>', re.I)
+        p = self.__rex(r'<a\s+href="http://www\.dictionary\.com/browse/([^<>"]+)">\s*(.+?)\s*</a>', re.I)
         for url, word in p.findall(div):
             url = urllib.unquote(url).strip().lower()
             if not url in d_app:
@@ -498,33 +478,30 @@ class dic_downloader(downloader):
     def makeword(self, page, word, words, logs, d_app):
         exist = False
         page = self.__preformat(page)
-        p = re.compile(r'<div\s+class="nearby-words-inner-box"[^<>]*>.+?</div>', re.I)
+        p = self.__rex(r'<div\s+class="nearby-words-inner-box"[^<>]*>.+?</div>', re.I)
         m = p.search(page)
         if not m:
             print "'%s' has no Nearby words" % word
-            logs.append("W01:'%s' has no Nearby words" % word)
+            logs.append("W01:\t'%s' has no Nearby words" % word)
         else:
             self.__rec_url(m.group(0), d_app)
-        p = re.compile(r'<section[^<>]*\bid="source-luna"', re.I)
+        p = self.__rex(r'<section[^<>]*\bid="source-luna"', re.I)
         if not p.search(page):
-            logs.append("I02: '%s' is not found in DIC" % word)
+            logs.append("I02:\t'%s' is not found in DIC" % word)
         else:
-            p = re.compile('<h1\s+class="head-entry">(.+?)</h1>', re.I)
+            p = self.__rex(r'<h1\s+class="head-entry">(.+?)</h1>', re.I)
             m = p.search(page)
             if not m:
                 raise AssertionError('E01:%s has no title' % word)
-            ttl = self.__get_text(m.group(1))
-            if not self.__cmpkt(word.strip().lower(), ttl.strip().lower()):
-                logs.append("W02: '%s' vs '%s'\t:key is not equal to title" % (word, ttl))
-            p = re.compile(r'(<section\s+id="source-luna"[^<>]*>.+?)\s*<div\s+class="source-meta">\s*Dictionary\.com\s+Unabridged.+?</div>\s*(</section>)', re.I)
+            p = self.__rex(r'(<section\s+id="source-luna"[^<>]*>.+?)\s*<div\s+class="source-meta">\s*Dictionary\.com\s+Unabridged.+?</div>\s*(</section>)', re.I)
             m1 = p.search(page)
-            p = re.compile(r'<section\s+class="related-words-box"[^<>]*>.+?</section>', re.I)
+            p = self.__rex(r'<section\s+class="related-words-box"[^<>]*>.+?</section>', re.I)
             mr = p.search(page)
             rlt = mr.group(0) if mr else ''
-            p = re.compile(r'<section\s+id="source-example-sentences"[^<>]*>.+?</section>', re.I)
+            p = self.__rex(r'<section\s+id="source-example-sentences"[^<>]*>.+?</section>', re.I)
             mx = p.search(page)
             exm = mx.group(0) if mx else ''
-            p = re.compile(r'<section\s+id="difficulty-box"[^<>]*>.+?</section>', re.I)
+            p = self.__rex(r'<section\s+id="difficulty-box"[^<>]*>.+?</section>', re.I)
             md = p.search(page)
             difc = md.group(0)if md else ''
             worddef = ''.join([m1.group(1), m1.group(2), rlt, exm, difc])
@@ -533,18 +510,103 @@ class dic_downloader(downloader):
             exist = True
         return exist
 
+    def cleansp(self, html):
+        p = self.__rex(r'\s{2,}')
+        html = p.sub(' ', html)
+        p = self.__rex(r'<!--[^<>]+?-->')
+        html = p.sub('', html)
+        p = self.__rex(r'\s*<br/?>\s*')
+        html = p.sub('<br>', html)
+        p = self.__rex(r'(\s*<br>\s*)*(<hr[^>]*>)(\s*<br>\s*)*', re.I)
+        html = p.sub(r'\2', html)
+        p = self.__rex(r'(\s*<br>\s*)*(<(?:/?(?:div|p)[^>]*|br)>)(\s*<br>\s*)*', re.I)
+        html = p.sub(r'\2', html)
+        p = self.__rex(r'\s*(<(?:/?(?:div|p|ul|li)[^>]*|br)>)\s*', re.I)
+        html = p.sub(r'\1', html)
+        p = self.__rex(r'(?<=[^,])\s+(?=[,;\?\!]|\.(?:[^\d\.]|$))')
+        html = p.sub(r'', html)
+        p = self.__rex(r'\s+(?=</?\w+>[\)\]\s])')
+        html = p.sub(r'', html)
+        return html
+
+    def __get_text(self, tag):
+        p = self.__rex(r'<(su[pb])>\w+</\1>', re.I)
+        tag = p.sub(r'', tag)
+        p = self.__rex(r'</?[^<>]+>')
+        return p.sub(r'', tag).replace('&amp;', '&').strip().lower()
+
+    def __fix_ttl(self, m, hl):
+        hl.append(m.group(2).replace('&amp;', '&').strip().lower())
+        return ''.join([m.group(1), m.group(2), m.group(3), m.group(4)])
+
+    def __fix_h3(self, h3, hl):
+        p = self.__rex(r'<span class="dbox-bold"[^<>]*>([^<>]+?)</span>\s*</h3>', re.I)
+        m = p.search(h3)
+        if m:
+            hl.append(m.group(1).replace('&amp;', '&').strip().lower())
+        p = self.__rex(r'(<span class="dbox-bold"[^<>]*>)([^<>]+?)(,)\s*(</span>)\s*(?=<span)', re.I)
+        h3 = p.sub(lambda m: self.__fix_ttl(m, hl), h3)
+        if not self.__rex(r'</span>\s*</h3>', re.I).search(h3):
+            pos = h3.rfind(',</span><span')
+            if pos > -1:
+                pron = h3[pos+8:-5]
+                p = self.__rex(r'<span class="dbox-roman"><span class="dbox-italic">\s*or\s*</span>\s*</span>', re.I)
+                pron = p.sub(r', ', pron)
+                pron = self.__rex(r'\xE2\x80\x90').sub('-', pron)
+                ps, pi, p = [], [], self.__rex(r'[^\x00-\x7F]')
+                for pt in pron.split(','):
+                    if not p.search(pt) or pt.find('<')>-1:
+                        ps.append(pt.strip())
+                    else:
+                        pi.append(pt.strip())
+                pron = ''.join(['<div class="header-row header-extras pronounce pronset">',
+                '<span class="pron spellpron">[', '; '.join(ps), '] </span><span class="pron ipapron">/', '; '.join(pi), '/ </span></div>'])
+                h3 = ''.join([h3[:pos+8], '</h3>', pron])
+        p = self.__rex(r'\s*data-syllable="([^<>"]+?)([,;\s]*)">[^<>]+(</span>)', re.I)
+        h3 = p.sub(r'>\1\3\2', h3)
+        p = self.__rex(r'(<span class="dbox-bold"[^<>]*>[^<>]+?)(,)(</span>)', re.I)
+        h3 = p.sub(r'\1\3\2 ', h3)
+        h3 = self.__rex(r',\s*(?=</h3>)').sub(r'', h3)
+        return h3
+
     def __repaud(self, m):
         text = m.group(1)
-        p = re.compile(r'href="http://static\.sfdict\.com/staticrep/dictaudio/([^"]+?)\.mp3"', re.I)
+        p = self.__rex(r'="http://static\.sfdict\.com/staticrep/dictaudio/([^"]+?)\.mp3"', re.I)
         m = p.search(text)
-        return ''.join(['<img src="vc.png" onclick="asr(this, \'', m.group(1), '\')" class="mip">'])
+        return ''.join(['<img src="vc.png" onclick="r5u.a(this, \'', m.group(1), '\')" class="mip">'])
 
-    def __tslink(self, m):
-        cls = 'n9x' if m.group(1)=='roman' else 'jpx'
-        return ''.join([cls, m.group(2), 'entry://', m.group(3).replace('/', '%2F')])
+    def __mkref(self, ref, word, crefs):
+        word, xr = word.lower(), ''
+        if ref in crefs:
+            xr = crefs[ref]
+        elif ref in self.links:
+            xr = self.links[ref]
+        elif word in crefs:
+            xr = word
+        elif word in self.links:
+            xr = self.links[word]
+        else:
+            try:
+                status, page = self.getpage(self.makeurl(ref.replace('/', '%2F')))
+                if page and status==301:
+                    lk = self.getcref(urllib.unquote(page), False)
+                    if lk:
+                        xr = crefs[lk]
+                        self.links[word] = xr
+                    else:
+                        print word
+            except Exception, e:
+                print word
+        if xr:
+            return ''.join(['entry://', xr.replace('/', '%2F').replace('?', '%3F')])
+        else:
+            return ''.join(['###', ref])
 
-    def __tslink2(self, m):
-        return ''.join(['entry://', m.group(1).replace('/', '%2F')])
+    def __tslink(self, m, crefs):
+        word = m.group(4)
+        if word == 'altiplane':
+            word = 'altiplano'
+        return ''.join([m.group(1), self.__mkref(m.group(2), self.__rex(r'\xC2\xB7').sub('', word), crefs), m.group(3), word])
 
     def __repanc(self, m, idl):
         id = randomstr(4)
@@ -559,34 +621,49 @@ class dic_downloader(downloader):
 
     def __rephdr(self, m, idl):
         text = m.group(1)
-        p = re.compile(r'<li><a data-href="([^<>"]+)">\s*([^<>]+?)\s*</a></li>', re.I)
+        p = self.__rex(r'<li><a data-navigation-href="([^<>"]+)">\s*([^<>]+?)\s*</a></li>', re.I)
         ll = []
         for id, str in p.findall(text):
             if id in idl:
                 ll.append(''.join(['<a href="entry://#', idl[id], '">', str, '</a> ']))
         return ''.join(ll)
 
-    def __fmtdef(self, m):
+    def __fmtdef(self, m, key, crefs):
         dc = m.group(2)
-        p = re.compile(r'((?:[^\w\s]|^)\s*<span class=")dbox-italic(">[A-Z][\w\s\-\,\.\/]+?\w)([\,\.]\s*</span>|</span>[\,\.])')
+        p = self.__rex(r'(<span class="dbox-italic">[^<>]*)<span class="dbox-italic">([^<>]*)</span>', re.I)
+        dc = p.sub(r'\1\2', dc)
+        p = self.__rex(r'((?:[^\w\s]|^)\s*<span class=")dbox-italic(">[A-Z][^<>]+?)([\.]\s*</span>|</span>[\.])')
         dc = p.sub(r'\1zjt\2\3', dc)
-        p = re.compile(r'(?<=<span class=")zjt(?=">[^<>]+?[A-Z]\.\s*</span>\s*\w)')
-        dc = p.sub(r'eet', dc)
-        p = re.compile(r'\(\s*(<span class=")dbox-italic"[^<>]*>([\w\s]*used with[\w\s]*)(</span>)\s*\)', re.I)
+        p = self.__rex(r'^(\s*(?:Also,\s*)?<span class=")dbox-italic(">(?:[A-Z]|especially)[^<>]+?)([\,]\s*</span>|</span>[\,])')
+        dc = p.sub(r'\1zjt\2\3', dc)
+        p = self.__rex(r'(?<=<span class="zjt">)([^<>]+)(?=</span>)', re.I)
+        dc = p.sub(lambda n: n.group(1).replace('..', '.'), dc)
+        p = self.__rex(r'(\S\s*<span class=")zjt(?=">[^<>]+?[A-Z]\.\s*</span>\s*\w)')
+        dc = p.sub(r'\1eet', dc)
+        p = self.__rex(r'\(\s*(<span class=")dbox-italic"[^<>]*>([\w\s]*used with[\w\s]*)(</span>)\s*\)', re.I)
         dc = p.sub(r'\1wy7">(\2)\3', dc)
-        return self.__fmtdef2(''.join([m.group(1), dc]))
+        dc = self.__fmtdef2(''.join([m.group(1), dc]), key, crefs)
+        return dc
 
-    def __fmtdef2(self, dc):
-        p = re.compile(r'(<span class="dbox-(?:bold|sc|italic)"[^<>]*>)(.+?)(,\s*)(</span>)', re.I)
-        return p.sub(r'\1\2\4\3', dc)
+    def __fmtdef2(self, dc, key, crefs):
+        p = self.__rex(r'(<span class="dbox-(?:bold|sc|italic)"[^<>]*>)(\s*)(.+?)([,;\s]*)(</span>)', re.I)
+        dc = p.sub(r'\2\1\3\5\4', dc)
+        m = self.__rex(r'(?:Also)\b').search(dc)
+        if m:
+            p = self.__rex(r'<span class="dbox-bold"[^<>]*>([^<>\(\)]+)(?=</span>)', re.I)
+            for b in p.findall(dc[m.end():]):
+                b = self.__rex(r'\xC2\xB7').sub('', b).strip().lower()
+                if len(b)>1 and not b in crefs and not b in self.links:
+                    self.links[b] = key
+        return dc
 
     def __fmttail(self, m):
         lbl = m.group(1)
         if lbl.find('tail-type-origin')>-1:
             return m.group(0)
         else:
-            p = re.compile(r'(<div class="tail-header\s*[^<>]+>)(.+)(?=</div>)', re.I)
-            th = p.sub(r'\1<span class="nwz">\2</span><img src="ac.png" class="gjy" onclick="ytu(this)">', m.group(2))
+            p = self.__rex(r'(<div class="tail-header\s*[^<>]+>)(.+)(?=</div>)', re.I)
+            th = p.sub(r'\1<span class="nwz">\2</span><img src="ac.png" class="gjy" onclick="r5u.y(this)">', m.group(2))
             return ''.join([m.group(1), th])
 
     def __fmttelm(self, m):
@@ -600,41 +677,48 @@ class dic_downloader(downloader):
         ul = m.group(4)
         if dif!='Contemporary' or ul.count('</li>')>5:
             sty = ' style="display:none"'
-            img = 'ax'
+            cls = 'qix'
         else:
             sty = ''
-            img = 'ac'
+            cls = 'gjy'
         return ''.join(['<span class="nwz">', dif, m.group(2),
-        '</span><img src="', img, '.png" class="gjy" onclick="ytu(this)">', m.group(3), sty, ul])
+        '</span><img src="ac.png" class="', cls, '" onclick="r5u.y(this)">', m.group(3), sty, ul])
 
     def __fmtcred(self, m):
-        p = re.compile(r'<a href[^<>]+>\s*(.*?)\s*</a>', re.I)
+        p = self.__rex(r'<a href[^<>]+>\s*(.*?)\s*</a>', re.I)
         cred = p.sub(r'\1', m.group(2))
-        p = re.compile(r'<span>\s*(.+?)\s*</span>\s*<span>\s*(.+?)\s*</span>\s*<span class="oneClick-disabled">\s*(\w{3})\w*(\s.+?)\s*</span>', re.I)
+        p = self.__rex(r'<span>\s*(.+?)\s*</span>\s*<span>\s*(.+?)\s*</span>\s*<span class="oneClick-disabled">\s*(\w{3})\w*(\s.+?)\s*</span>', re.I)
         cred = p.sub(r'<span>\2, </span><i>\1</i> <span>(\3\4)</span>', cred)
-        p = re.compile(r'<span>\s*(.+?)\s*</span>\s*<span class="oneClick-disabled">\s*(.+?)\s*</span>', re.I)
+        p = self.__rex(r'<span>\s*(.+?)\s*</span>\s*<span class="oneClick-disabled">\s*(.+?)\s*</span>', re.I)
         cred = p.sub(r'<span>\2, </span><i>\1</i>', cred)
-        p = re.compile(r'<i>([^<>]{30})([^<>]+)</i>', re.I)
+        p = self.__rex(r'<i>([^<>]{30})([^<>]+)</i>', re.I)
         cred = p.sub(r'<i title="\1\2">\1</i>...', cred)
         return ''.join([m.group(1), cred])
 
     def __repcls(self, m):
         tag = m.group(1)
         cls = m.group(3)
-        self.span = {'me': 'snr', 'pron spellpron': 'seu', 'dbox-bold': 'eds',
-        'pron ipapron': 'kyi', 'dbox-pg': 'f1v', 'def-number': 'lno',
+        if tag in self.__trs_tbl and cls in self.__trs_tbl[tag]:
+            return ''.join([tag, m.group(2), self.__trs_tbl[tag][cls]])
+        else:
+            return m.group(0)
+
+    def set_trs_tbl(self):
+        self.__trs_tbl ={'span': {'me': 'snr', 'pron spellpron': 'seu', 'dbox-bold': 'eds',
+        'pron ipapron': 'kyi', 'dbox-pg': 'f1v', 'dbox-qg': 'ity', 'def-number': 'lno',
         'dbox-roman': 'rdg', 'dbox-italic': 'eet', 'dbox-example': 'cie',
         'dbox-sc': 'mcy', 'dbus_altslash': 'iuf', 'dbox-romann': 'wuu',
         'def-block-label': 'zsc', 'dbox-hn': 'unb', 'pre-def-data': 'uzu',
         'dbus_persn': 'oda', 'dbus_pron_sup': 'pc6', 'dbus_ford': 'joq',
         'dbus_langc': 'fx6', 'def-block-label-synonyms': 'x8g', 'pronset': 'w2p',
         'def-block-label-antonyms': 'q6s', 'tail-source-info': 'gsu',
-        'dbus_author_ed': 'eed', 'dbox-italic dbox-bold': 'n7z'}
-        self.div = {'source-box oneClick-area': 'c4d', 'waypoint-wrapper header-row header-first-row': 'y2u',
+        'dbus_author_ed': 'eed', 'dbox-italic dbox-bold': 'n7z'},
+        'div': {'source-box oneClick-area': 'c4d', 'waypoint-wrapper header-row header-first-row': 'y2u',
         'header-row header-extras pronounce pronset': 'k0a', 'header-row': 'lxv',
         'source-data': 'z5o', 'def-list': 'vy5', 'def-set': 'uy4', 'def-content': 'u72',
         'tail-wrapper': 'r1q', 'tail-box tail-type-origin pm-btn-spot': 'tw0',
-        'tail-header waypoint-wrapper': 'kwy', 'tail-content': 'tsj', 'tail-elements': 'tqa',
+        'tail-header waypoint-wrapper': 'kwy', 'tail-header waypoint-wrapper oneClick-disabled': 'kwy',
+        'tail-content': 'tsj', 'tail-elements': 'tqa',
         'source-title': 'tlh', 'source-subtitle oneClick-disabled': 'yns',
         'partner-example-credentials': 'qxr', 'def-block def-inline-example': 'lld',
         'tail-header': 'tgi', 'tail-content ce-spot': 'nwt',
@@ -648,172 +732,192 @@ class dic_downloader(downloader):
         'tail-box tail-type-synstudy pm-btn-spot': 'sdd', 'tail-box tail-type-popular_references pm-btn-spot': 'par',
         'tail-box tail-type-cites pm-btn-spot': 'ne7', 'ts normal': 'sgt', 'ts boldface': 'rbw',
         'usage-alert': 'uau', 'tail-box tail-type-confusables_note pm-btn-spot': 'w2z',
-        'ts lightface': 'ymr', 'content': 'nwt'}
-        self.hd = {'main-header oneClick-disabled head-big': 'hq2', 'luna-data-header': 'kly',
-        'main-header oneClick-disabled head-medium': 'oi9', 'main-header oneClick-disabled head-small': 'sqy',
-        'usage-alert-header': 'una'}
-        self.sec = {'luna-box': 'yik', 'def-pbk ce-spot': 'nq3', 'usage-alert-block ce-spot': 'uju',
+        'ts lightface': 'ymr', 'content': 'nwt'},
+        'header': {'main-header oneClick-disabled cts-disabled head-big': 'hq2', 'luna-data-header': 'kly',
+        'main-header oneClick-disabled cts-disabled head-medium': 'oi9', 'main-header oneClick-disabled cts-disabled head-small': 'sqy',
+        'usage-alert-header': 'una'},
+        'section': {'luna-box': 'yik', 'def-pbk ce-spot': 'nq3', 'usage-alert-block ce-spot': 'uju',
         'source-wrapper source-example-sentences is-pm-btn-show pm-btn-spot': 'e7f',
-        'related-words-box': 'bcr'}
-        self.h3 = {'head-entry-variants': 'aws', 'title': 'x7r'}
-        self.li = {'size-1': 'jk5', 'size-2': 'p3q', 'size-3': 'pz3', 'size-4': 'y4a'}
-        if tag=='div' and cls in self.div:
-            return ''.join([tag, m.group(2), self.div[cls]])
-        elif tag=='span' and cls in self.span:
-            return ''.join([tag, m.group(2), self.span[cls]])
-        elif tag=='section' and cls in self.sec:
-            return ''.join([tag, m.group(2), self.sec[cls]])
-        elif tag=='header' and cls in self.hd:
-            return ''.join([tag, m.group(2), self.hd[cls]])
-        elif tag=='h3' and cls in self.h3:
-            return ''.join([tag, m.group(2), self.h3[cls]])
-        elif tag=='li' and cls in self.li:
-            return ''.join([tag, m.group(2), self.li[cls]])
-        elif tag=='p' and cls=='partner-example-text':
-            return ''.join([tag, m.group(2), 'p7c'])
-        elif tag=='h1' and cls=='head-entry':
-            return ''.join([tag, m.group(2), 'bih'])
-        elif tag=='h2' and cls=='head-entry':
-            return ''.join([tag, m.group(2), 'qih'])
-        elif tag=='ol' and cls=='def-sub-list':
-            return ''.join([tag, m.group(2), 'ocy'])
-        elif tag=='ul' and cls=='list-vertical':
-            return ''.join([tag, m.group(2), 'utg'])
-        else:
-            return m.group(0)
+        'related-words-box': 'bcr'},
+        'h3': {'head-entry-variants': 'aws', 'title': 'x7r'},
+        'li': {'size-1': 'jk5', 'size-2': 'p3q', 'size-3': 'pz3', 'size-4': 'y4a'},
+        'p': {'partner-example-text': 'p7c'}, 'h1': {'head-entry': 'bih'},
+        'h2': {'head-entry': 'qih'}, 'ol': {'def-sub-list': 'ocy'},
+        'ul': {'list-vertical': 'utg'}}
 
     def __repprn(self, m):
         prn = m.group(1)
-        return prn.replace('"eds"', '"b7a"').replace('"mcy"', '"mfe"').replace('"eet"', '"ity"')
+        prn = self.__rex(r'(?<=[,;]) ').sub(r'<span class="rac"> </span>', prn)
+        return prn.replace('"dbox-bold"', '"b7a"').replace('"dbox-sc"', '"mfe"').replace('"dbox-italic"', '"ity"')
 
     def formatEntry(self, key, line, crefs, links, logs):
         if line.startswith('@@@'):
             lk, ref = line.split('=')
             if ref in crefs:
-                p = re.compile(r'[\s\-\'/]|\.$')
+                p = self.__rex(r'[\s\-\'/]|\.$')
                 if p.sub(r'', key).lower()!=p.sub(r'', crefs[ref]).lower() and self.is_uni_word(key, ref, links):
-                    return '\n'.join([key, ''.join(['@@@LINK=', crefs[ref].replace('/', '%2F')]), '</>'])
+                    return '\n'.join([key, ''.join(['@@@LINK=', crefs[ref]]), '</>'])
                 else:
+                    logs.append("I03:\tignore link %s" % key)
                     return ''
             else:
-                logs.append("E02: The ref target of '%s' is not found" % key)
+                logs.append("E02:\tThe ref target of '%s' is not found" % key)
                 return ''
+        if key == '2':
+            return ''
+        p = self.__rex(r'<h1\s+class="head-entry">(.+?)</h1>', re.I)
+        ttl = self.__get_text(self.__get_text(p.search(line).group(1)))
+        if key != ttl:
+            if ttl in crefs:
+                logs.append("W02:\tgenerate link %s -> %s" % (key, ttl))
+                self.links[key] = ttl
+                return ''
+            elif not ttl in self.links:
+                logs.append("W03:\tgenerate link %s => %s" % (ttl, key))
+                self.links[ttl] = key
+        p, hl = self.__rex(r'(?<=<h3 class="head-entry-variants">)(.*?</h3>)', re.I), []
+        line = p.sub(lambda m: self.__fix_h3(m.group(1), hl), line)
+        for h in hl:
+            ttl = self.__get_text(h)
+            if key!=ttl and not ttl in crefs and not ttl in self.links:
+                logs.append("W04:\tgenerate link %s => %s" % (ttl, key))
+                self.links[ttl] = key
         n = 1
         while n:
-            p = re.compile(r'(?<=data-syllable=")([^<>"]*?)<[^<>]+>[^<>"]*?</[^<>"]+>', re.I)
+            p = self.__rex(r'(?<=data-syllable=")([^<>"]*?)<[^<>]+>[^<>"]*?</[^<>"]+>', re.I)
             line, n = p.subn(r'\1', line)
         line = line.replace('&lt;span class="', '<span class="')
-        p = re.compile(r'(data-syllable="[^<>"]+")&gt;', re.I)
+        p = self.__rex(r'(data-syllable="[^<>"]+")&gt;', re.I)
         line = p.sub(r'\1>', line)
         n = 1
         while n:
-            p = re.compile(r'<(?=[^<>]*</?\w+\b)', re.I)
+            p = self.__rex(r'<(?=[^<>]*</?\w+\b)', re.I)
             line, n = p.subn(r'&lt;', line)
         n = 1
         while n:
-            p = re.compile(r'(<[^<>]+>[^<>]*)>', re.I)
+            p = self.__rex(r'(<[^<>]+>[^<>]*)>', re.I)
             line, n = p.subn(r'\1&gt;', line)
-        p = re.compile(r'(?<=<section)[^<>]*\bid="source-luna"[^<>]*(?=>)', re.I)
+        p = self.__rex(r'(\d,)\s*</span>\s*<span class="dbox-bold"[^<>]*>(?=\d)', re.I)
+        line = p.sub(r'\1 ', line)
+        p = self.__rex(r'<div class="deep-link-synonyms">\s*<a href="http://www.thesaurus.com/browse/.+?</div>', re.I)
+        line = p.sub(r'', line)
+        p = self.__rex(r'(?<=<section)[^<>]*\bid="source-luna"[^<>]*(?=>)', re.I)
         line = p.sub(r' class="ti9"', line)
-        p = re.compile(r'data-syllable="([^<>"]+)">[^<>]+(?=</span>)', re.I)
-        line = p.sub(r'>\1', line)
-        p = re.compile(r'<div class="audio-wrapper">(.+?)</div>', re.I)
+        p = self.__rex(r'\s*data-syllable="([^<>"]+?)([,;\s]*)">[^<>]+(</span>)', re.I)
+        line = p.sub(r'>\1\3\2', line)
+        p = self.__rex(r'<div class="speaker">\s*</div>', re.I)
+        line = p.sub(r'', line)
+        p = self.__rex(r'<div class="audio-wrapper[^<>"]*">(.+?)</div>', re.I)
         line = p.sub(self.__repaud, line)
-        p = re.compile(r'(</h[12]>)(<img src="vc.png"[^<>]+>)', re.I)
+        p = self.__rex(r'(</h[12]>)(<img src="vc.png"[^<>]+>)', re.I)
         line = p.sub(r'\2\1', line)
-        p = re.compile(r'<button\s+class="(?:prontoggle|syllable-button)[^<>]+>[^<>]*?</button>', re.I)
+        p = self.__rex(r'<button\s+class="(?:prontoggle|syllable-button)[^<>]+>[^<>]*?</button>', re.I)
         line = p.sub(r'', line)
-        p = re.compile('<button[^<>]+>\s*Expand\s*</button>', re.I)
+        p = self.__rex(r'<button[^<>]+>\s*Expand\s*</button>', re.I)
         line = p.sub(r'', line)
-        p = re.compile(r'<div class="map-origin">.+?</div>(?=<div class="timeline oneClick-disabled">|&lt;|[^<>]*(?:<a\s|<span class="(?:dbox-roman|dbus_ford|dbox-italic|dbus_persn)">))', re.I)
+        p = self.__rex(r'<div class="map-origin">.+?</div>(?=<div class="timeline oneClick-disabled">|&lt;|[^<>]*(?:<a\s|<span class="(?:dbox-roman|dbus_ford|dbox-italic|dbus_persn)">))', re.I)
         line = p.sub(r'', line)
-        p = re.compile(r'<div class="timeline oneClick-disabled"><div class="span"[^<>]*>.+?</div></div>', re.I)
+        p = self.__rex(r'<div class="timeline oneClick-disabled"><div class="span"[^<>]*>.+?</div></div>', re.I)
         line = p.sub(r'', line)
-        p = re.compile(r'<div class="source-meta">.+?</div>', re.I)
+        p = self.__rex(r'<div class="source-meta">.+?</div>', re.I)
         line = p.sub(r'', line)
-        p = re.compile(r'(?<=<a class=")dbox-xref dbox-(roman|bold)(" href=")http://dictionary\.reference\.com/browse/([^<>"]+)(?=">)', re.I)
-        line = p.sub(self.__tslink, line)
-        p = re.compile(r'(?<=<a href=")http://dictionary\.reference\.com/browse/([^<>"]+)(?=">)', re.I)
-        line = p.sub(self.__tslink2, line)
-        p = re.compile(r'<a\s+href="http://www\.thesaurus\.com/browse/[^<>"]+">(.+?)</a>', re.I)
+        p = self.__rex(r'(?<=<span class=")dbox-italic(?=">(?:[A-Z]|especially)[^<>]+?</span>\s*(?:<span class="dbox-bold"|<a class="dbox-xref dbox-bold"))')
+        line = p.sub(r'zjt', line)
+        p = self.__rex(r'(?<=<a class=")dbox-xref dbox-(roman|bold)(?=" href="http://www\.dictionary\.com/browse/)', re.I)
+        line = p.sub(lambda m: 'n9x' if m.group(1)=='roman' else 'jpx', line)
+        p = self.__rex(r'<a\s+href="http://www\.thesaurus\.com/browse/[^<>"]+">(.+?)</a>', re.I)
         line = p.sub(r'\1', line)
-        p = re.compile(r'(?<=<img class=)[^<>]+?(src=)[\'"](http://static\.sfdict\.com/dictstatic/dictionary/graphics/luna/)([^<>/\'"]+)[^<>]+(?=>)', re.I)
+        p = self.__rex(r'(?<=<img class=)[^<>]+?(src=)[\'"](http://static\.sfdict\.com/dictstatic/dictionary/graphics/luna/)([^<>/\'"]+)[^<>]+(?=>)', re.I)
         line = p.sub(self.__repimg, line)
-        p = re.compile(r'<section\s+id="difficulty-box"\s+data-difficulty="(\d+)".+?<span class="subtext">([^<>]+)</span>\s*</section>', re.I)
+        p = self.__rex(r'<section\s+id="difficulty-box"\s+data-difficulty="(\d+)".+?<span class="subtext">([^<>]+)</span>\s*</section>', re.I)
         m = p.search(line)
         if m:
             dcbox = ''.join(['<div class="wf6"><img src="idc.png" class="i4g" title="', m.group(2), '"><img src="ix.png" class="iho" alt="', m.group(1), '"></div>'])
-            q = re.compile(r'(<header class="main-header oneClick-disabled head-(?:big|medium|small)">)', re.I)
+            q = self.__rex(r'(<header class="main-header [^<>]*?head-(?:big|medium|small)">)', re.I)
             line = q.sub(''.join([r'\1', dcbox]), line, 1)
         line = p.sub('', line)
-        p = re.compile(r'(<a href="http://[^<>"]+")(?=>)', re.I)
-        line = p.sub(r'\1 target="_blank"', line)
-        p = re.compile(r'(\s*[,\.]\s*)(</a>)', re.I)
-        line = p.sub(r'\2\1', line)
-        p = re.compile(r'(<div[^<>]+>Origin).+?(?=</div>)', re.I)
+        p = self.__rex(r'(<div[^<>]+?\bid="source-word-origin"[^<>]*>Origin).+?(?=</div>)', re.I)
         line = p.sub(r'\1', line)
         n = 1
         while n:
-            p = re.compile(r'<(\w+)[^<>]*>\s*</\1>', re.I)
+            p = self.__rex(r'<(\w+)[^<>]*>\s*</\1>', re.I)
             line, n = p.subn(r'', line)
-        p = re.compile(r'(<span class="dbox-pg">[^<>]+</span>[^<>]*)\((<span class=")dbox-italic(">)([^<>]+)(</span>)\)', re.I)
+        p = self.__rex(r'(<span class="dbox-pg">[^<>]+</span>[^<>]*)\((<span class=")dbox-italic(">)([^<>]+)(</span>)\)', re.I)
         line = p.sub(r'\1\2wtq\3(\4)\5', line)
-        p = re.compile(r'(\xC2\xB7)')
-        line = p.sub(r'<span></span>', line)
-        p = re.compile(r'(<div class="def-content">)(.+?)(?=</div>)', re.I)
-        line = p.sub(self.__fmtdef, line)
-        p = re.compile(r'(<div[^<>]+><ol class=")def-sub-list(?=">)', re.I)
+        p = self.__rex(r'(?<=<span class="pron spellpron">)(.+?)(?=<span class="pron ipapron">)', re.I)
+        line = p.sub(self.__repprn, line)
+        p = self.__rex(r'(?<=<span class="pron ipapron">)(.+?)(?=</span>)', re.I)
+        q = self.__rex(r'(?<=[,;]) ')
+        line = p.sub(lambda m: q.sub(r'<span class="rac"> </span>', m.group(1)), line)
+        p = self.__rex(r'(<div class="def-content">)(.+?)(?=</div>)', re.I)
+        line = p.sub(lambda m: self.__fmtdef(m, key, crefs), line)
+        p = self.__rex(r'(<div[^<>]+><ol class=")def-sub-list(?=">)', re.I)
         line = p.sub(r'\1ozp', line)
-        p = re.compile(r'(<ol class="def-sub-list">)(.+?)(?=</ol>)', re.I)
-        line = p.sub(self.__fmtdef, line)
-        p = re.compile(r'(?<=<div class="tail-elements">)(.+?)(?=</div>)', re.I)
-        line = p.sub(lambda m: self.__fmtdef2(m.group(1)), line)
-        p = re.compile(r'(<div class="tail-box tail-type-[^<>"\s]+? pm-btn-spot"[^<>]*>)(.+?</div>)', re.I)
+        p = self.__rex(r'(<ol class="def-sub-list">)(.+?)(?=</ol>)', re.I)
+        line = p.sub(lambda m: self.__fmtdef(m, key, crefs), line)
+        p = self.__rex(r'(?<=<div class="tail-elements">)(.+?)(?=</div>)', re.I)
+        line = p.sub(lambda m: self.__fmtdef2(m.group(1), key, crefs), line)
+        p = self.__rex(r'(<a [^<>]*href=")http://www\.dictionary\.com/browse/([^<>"]+)(">\s*)([^<>]+)(?=\s*</a>)', re.I)
+        line = p.sub(lambda m: self.__tslink(m, crefs), line)
+        p = self.__rex(r'(<a href="http://[^<>"]+")(?=>)', re.I)
+        line = p.sub(r'\1 target="_blank"', line)
+        p = self.__rex(r'(\s*[,\.]\s*)(</a>)', re.I)
+        line = p.sub(r'\2\1', line)
+        p = self.__rex(r'\xC2\xB7')
+        line = p.sub(r'<span></span>', line)
+        p = self.__rex(r'(<div class="tail-box tail-type-[^<>"\s]+? pm-btn-spot"[^<>]*>)(.+?</div>)', re.I)
         line = p.sub(self.__fmttail, line)
-        p = re.compile(r'(?<=div class="tail-elements">)(.+?)(?=</div>)', re.I)
+        p = self.__rex(r'(?<=div class="tail-elements">)(.+?)(?=</div>)', re.I)
         line = p.sub(self.__fmttelm, line)
-        p = re.compile(r'<header>\s*(<h3 class="title">)(Related Words?)(</h3>)\s*</header>', re.I)
-        line = p.sub(r'\1<span class="ach">\2</span><img src="ac.png" class="gjy" onclick="ytu(this)">\3', line)
-        p = re.compile(r'(<(?:div|section)[^<>]*?)\bid="([^<>"]+)"([^<>]*>)', re.I)
+        p = self.__rex(r'<header>\s*(<h3 class="title">)(Related Words?)(</h3>)\s*</header>', re.I)
+        line = p.sub(r'\1<span class="ach">\2</span><img src="ac.png" class="gjy" onclick="r5u.y(this)">\3', line)
+        p = self.__rex(r'(<(?:div|section)[^<>]*?)\bid="([^<>"]+)"([^<>]*>)', re.I)
         idl = {}
         line = p.sub(lambda m: self.__repanc(m, idl), line)
-        p = re.compile(r'(?<=<div class="header-row">)(.+?)(?=</div>)', re.I)
+        p = self.__rex(r'(?<=<div class="header-row">)(.+?)(?=</div>)', re.I)
         line = p.sub(lambda m: self.__rephdr(m, idl), line)
         n = 1
         while n:
-            p = re.compile(r'(<\w+[^<>]+?)\s*data-[\-\w]+=(?:"[^<>"]*"|\'[^<>\']*\')', re.I)
+            p = self.__rex(r'(<\w+[^<>]+?)\s*data-[\-\w]+=(?:"[^<>"]*"|\'[^<>\']*\')', re.I)
             line, n = p.subn(r'\1', line)
-        p = re.compile(r'(?<=</span>)\s*\(<span[^<>]+>Show IPA</span>\)', re.I)
+        p = self.__rex(r'(?<=</span>)\s*\(<span[^<>]+>Show IPA</span>\)', re.I)
         line = p.sub(r'', line)
-        p = re.compile(r'\s*(</span>)\s*(?=<span class="pron ipapron">)', re.I)
+        p = self.__rex(r'\s*(</span>)\s*(?=<span class="pron ipapron">)', re.I)
         line = p.sub(r' \1 ', line)
-        p = re.compile(r'(?<=<span class="def-number">)(\d+)\.(?=</span>)', re.I)
+        p = self.__rex(r'(?<=<span class="def-number">)(\d+)\.(?=</span>)', re.I)
         line = p.sub(r'\1 ', line)
-        p = re.compile(r'(<span class="dbox-pg">[^<>]+?)([\,\.]\s*)(</span>)', re.I)
+        p = self.__rex(r'(<span class="dbox-pg">[^<>]+?)([\,\.]\s*)(</span>)', re.I)
         line = p.sub(r'\1\3\2', line)
-        p = re.compile(r'(?<=<span class="dbox-pg">)([^<>\(\)]+)(\([^<>\(\)]+\))', re.I)
+        p = self.__rex(r'(?<=<span class="dbox-pg">)([^<>\(\)]+)(\([^<>\(\)]+\))', re.I)
         line = p.sub(r'\1<span class="wy7">\2</span>', line)
-        p = re.compile(r'<div class="source-title">Examples from the Web for.+?</div>', re.I)
+        p = self.__rex(r'<div class="source-title">Examples from the Web for.+?</div>', re.I)
         line = p.sub(r'', line)
-        p = re.compile(r'(?<=<div class="source-subtitle oneClick-disabled">)(\w+?)(\sExamples)(</div><ul)(>.+?)(?=</ul>)', re.I)
+        p = self.__rex(r'(?<=<div class="source-subtitle oneClick-disabled">)(\w+?)(\sExamples)(</div><ul)(>.+?)(?=</ul>)', re.I)
         line = p.sub(self.__fmtexphd, line)
-        p = re.compile(r'(<div class="partner-example-credentials"[^<>]*>)(.+?)(?=</div>)', re.I)
+        p = self.__rex(r'(<div class="partner-example-credentials"[^<>]*>)(.+?)(?=</div>)', re.I)
         line = p.sub(self.__fmtcred, line)
-        p = re.compile(r'(?<=<)(span|div|header|section|h[1-3]|p|ol|li|ul)\s*(\sclass=")([^<>"]+?)\s*(?=")', re.I)
+        p = self.__rex(r'(?<=<header class="luna-data-header">)(.+?)(?=</header>)', re.I)
+        q = self.__rex(r'(?<=<span class="dbox-)pg(?=">)', re.I)
+        line = p.sub(lambda m: q.sub(r'qg', m.group(1)), line)
+        q = self.__rex(r'(?<=<span class="dbox-)qg(?=">)', re.I)
+        line = p.sub(lambda m: q.sub(r'pg', m.group(1), 1), line)
+        p = self.__rex(r'(?<=<span class=")dbox-italic(?=">\s*especially)', re.I)
+        line = p.sub(r'ity', line)
+        p = self.__rex(r'(?<=<)(span|div|header|section|h[1-3]|p|ol|li|ul)\s*(\sclass=")([^<>"]+?)\s*(?=")', re.I)
         line = p.sub(self.__repcls, line)
-        p = re.compile(r'(</?)(?:header|section)(?=[^>]*>)', re.I)
+        p = self.__rex(r'(</?)(?:header|section)(?=[^>]*>)', re.I)
         line = p.sub(r'\1div', line)
-        p = re.compile(r'\s+(?=>|</?div|</?p)', re.I)
+        p = self.__rex(r'\s+(?=>|</?div|</?p)', re.I)
         line = p.sub(r'', line)
-        p = re.compile(r'(?<=<span class="seu">)(.+?)(?=<span class="kyi">)', re.I)
-        line = p.sub(self.__repprn, line)
-        p = re.compile(r'(?<=<span class=")(?:ity|eet)(">[^<>]+)(</span>)(\s*[\,\.])', re.I)
+        p = self.__rex(r'(?<=<span class=")(?:ity|eet)(">[^<>]+</span>)\s*(?=[\,\.])', re.I)
+        line = p.sub(r'eet\1', line)
+        p = self.__rex(r'(?<=<span class=")ity(">[^<>]+?)(\,\s*)(</span>)', re.I)
         line = p.sub(r'eet\1\3\2', line)
-        p = re.compile(r'(?<=<span class=")ity(?=">[^<>]+?\,\s*</span>)', re.I)
-        line = p.sub(r'eet', line)
-        src = ''.join(['<script type="text/javascript"src="r5.js"></script><script>if(typeof(w2z)=="undefined"){var _l=document.getElementsByTagName("link");var _r=/',
-        self.DIC_T, '.css$/;for(var i=_l.length-1;i>=0;i--)with(_l[i].href){var _m=match(_r);if(_m&&_l[i].id=="khl"){document.write(\'<script src="\'+replace(_r,"r5.js")+\'"type="text/javascript"><\/script>\');break;}}}</script>'])
-        line = ''.join(['<link id="khl"rel="stylesheet"href="', self.DIC_T, '.css"type="text/css"><div class="khr">', line, src, '</div>'])
+        if line.find('onclick=')>-1 or line.find('src="idc.png"')>-1:
+            src = '<script type="text/javascript"src="r5.js"></script>'
+        else:
+            src = ''
+        line = ''.join(['<link rel="stylesheet"href="', self.DIC_T, '.css"type="text/css"><div class="khr">', line, src, '</div>'])
         line = '\n'.join([key, line, '</>'])
         return line
 
@@ -869,7 +973,6 @@ if __name__=="__main__":
         if is_complete(fullpath(dir)):
             dic_dl.combinefiles(dir)
         print "Done!"
-        dic_dl.logout()
     else:
         print "ERROR: Login failed."
     print "Finished at %s" % datetime.now()
