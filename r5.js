@@ -1,24 +1,52 @@
-w2z=0;
-function ytu(c){
+var r5u=(function(){
+function f(){
+var d=document.getElementsByTagName("div");
+var n;
+for(var i=0;i<d.length;i++){
+n=d[i];
+if(n.previousSibling&&n.className=="nwt"){
+var p=n.previousSibling;
+var h=p.childNodes[0].offsetHeight;
+p=p.childNodes[1];
+if(p.className=="gjy"&&n.offsetHeight>h*12){
+p.className="qix";
+n.style.display="none";
+}
+}}
+d=document.getElementsByTagName("img");
+for(var i=0;i<d.length;i++){
+n=d[i];
+if(n.className=="iho"){
+var l=n.previousSibling.offsetWidth*parseInt(n.alt,10)/100-180;
+l=l>-13?-13:l;
+n.style.left=parseInt(l,10)+"px";
+}}
+}
+if(typeof(w2z)=="undefined"){
+if(window.addEventListener)
+	window.addEventListener("load",f,false);
+else window.attachEvent("onload",f);
+}
+return{
+y:function(c){
 var n=c.parentNode.nextSibling;
-with(n.style)
-if(display!="none"){
-display="none";
-c.src=c.src.replace(/\w+.png$/,"ax.png");
+if(n.style.display!="none"){
+n.style.display="none";
+c.className="qix";
 }else{
-display="block";
-c.src=c.src.replace(/\w+.png$/,"ac.png");
+n.style.display="block";
+c.className="gjy";
 }
-}
-function asr(c,f){
+},
+a:function(c,f){
 c.removeAttribute("onclick");
-with(c.style){
-	cursor="default";outline="1px dotted gray";
-}
+c.style.cursor="default";
+c.style.outline="1px dotted gray";
 var u="http://static.sfdict.com/staticrep/dictaudio/"+f+".mp3";
 var b=function(){
-	with(c.style){outline="";cursor="pointer";}
-	c.setAttribute("onclick","asr(this,'"+f+"')");
+	c.style.outline="";
+	c.style.cursor="pointer";
+	c.setAttribute("onclick","r5u.a(this,'"+f+"')");
 	};
 var t=setTimeout(b,2000);
 try{
@@ -33,31 +61,4 @@ catch(e){
 c.style.outline="";
 }
 }
-function j1f(){
-w2z=1;
-var d=document.getElementsByTagName("div");
-for(var i=0;i<d.length;i++)
-with(d[i])
-if(previousSibling&&className=="nwt")
-with(previousSibling){
-var h=childNodes[0].offsetHeight;
-with(childNodes[1])
-if(className=="gjy"&&d[i].offsetHeight>h*12){
-src=src.replace(/\w+.png$/,"ax.png");
-d[i].style.display="none";
-}
-}
-d=document.getElementsByTagName("img");
-for(var i=0;i<d.length;i++)
-with(d[i])
-if(className=="iho"){
-var l=previousSibling.offsetWidth*parseInt(alt,10)/100-180;
-l=l>-13?-13:l;
-style.left=parseInt(l,10)+"px";
-}
-}
-if(!w2z){
-if(window.addEventListener)
-	window.addEventListener("load",j1f,false);
-else window.attachEvent("onload",j1f);
-}
+}}());
