@@ -628,6 +628,13 @@ class dic_downloader(downloader):
                 ll.append(''.join(['<a href="entry://#', idl[id], '">', str, '</a> ']))
         return ''.join(ll)
 
+    def __regvars(self, line, key, crefs):
+        p = self.__rex(r'<span class="dbox-bold"[^<>]*>([^<>\(\)]+)(?=</span>)', re.I)
+        for b in p.findall(line):
+            b = self.__rex(r'\xC2\xB7').sub('', b).strip().lower()
+            if len(b)>1 and not b in crefs and not b in self.links:
+                self.links[b] = key
+
     def __fmtdef(self, m, key, crefs):
         dc = m.group(2)
         p = self.__rex(r'(<span class="dbox-italic">[^<>]*)<span class="dbox-italic">([^<>]*)</span>', re.I)
@@ -650,11 +657,7 @@ class dic_downloader(downloader):
         dc = p.sub(r'\2\1\3\5\4', dc)
         m = self.__rex(r'(?:Also)\b').search(dc)
         if m:
-            p = self.__rex(r'<span class="dbox-bold"[^<>]*>([^<>\(\)]+)(?=</span>)', re.I)
-            for b in p.findall(dc[m.end():]):
-                b = self.__rex(r'\xC2\xB7').sub('', b).strip().lower()
-                if len(b)>1 and not b in crefs and not b in self.links:
-                    self.links[b] = key
+            self.__regvars(dc[m.end():], key, crefs)
         return dc
 
     def __fmttail(self, m):
@@ -863,6 +866,18 @@ class dic_downloader(downloader):
         line = p.sub(r'\1 target="_blank"', line)
         p = self.__rex(r'(\s*[,\.]\s*)(</a>)', re.I)
         line = p.sub(r'\2\1', line)
+        p = self.__rex(r'\s*(</?sub>)\s*', re.I)
+        line = p.sub(r'\1', line)
+        p = self.__rex(r'(?<=<header class="luna-data-header">)(.+?)(?=</header>)', re.I)
+        q = self.__rex(r'(?<=<span class="dbox-)pg(?=">)', re.I)
+        line = p.sub(lambda m: q.sub(r'qg', m.group(1)), line)
+        q = self.__rex(r'(?<=<span class="dbox-)qg(?=">)', re.I)
+        line = p.sub(lambda m: q.sub(r'pg', m.group(1), 1), line)
+        q = self.__rex(r'(<span class="dbox-(?:bold|italic)"[^<>]*>[^<>]+?)([,;\.]\s*)(</span>)', re.I)
+        line = p.sub(lambda m: q.sub(r'\1\3\2 ', m.group(1)), line)
+        p = self.__rex(r'<div class="tail-box tail-type-relf pm-btn-spot"[^<>]+>(.+?)(?=<div class="(?:tail-box tail-type-|source-box)|<section)', re.I)
+        for r in p.findall(line):
+            self.__regvars(r, key, crefs)
         p = self.__rex(r'\xC2\xB7')
         line = p.sub(r'<span></span>', line)
         p = self.__rex(r'(<div class="tail-box tail-type-[^<>"\s]+? pm-btn-spot"[^<>]*>)(.+?</div>)', re.I)
@@ -896,11 +911,6 @@ class dic_downloader(downloader):
         line = p.sub(self.__fmtexphd, line)
         p = self.__rex(r'(<div class="partner-example-credentials"[^<>]*>)(.+?)(?=</div>)', re.I)
         line = p.sub(self.__fmtcred, line)
-        p = self.__rex(r'(?<=<header class="luna-data-header">)(.+?)(?=</header>)', re.I)
-        q = self.__rex(r'(?<=<span class="dbox-)pg(?=">)', re.I)
-        line = p.sub(lambda m: q.sub(r'qg', m.group(1)), line)
-        q = self.__rex(r'(?<=<span class="dbox-)qg(?=">)', re.I)
-        line = p.sub(lambda m: q.sub(r'pg', m.group(1), 1), line)
         p = self.__rex(r'(?<=<span class=")dbox-italic(?=">\s*especially)', re.I)
         line = p.sub(r'ity', line)
         p = self.__rex(r'(?<=<)(span|div|header|section|h[1-3]|p|ol|li|ul)\s*(\sclass=")([^<>"]+?)\s*(?=")', re.I)
