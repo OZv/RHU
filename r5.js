@@ -22,7 +22,7 @@ l=l>-13?-13:l;
 n.style.left=parseInt(l,10)+"px";
 }}
 }
-if(typeof(w2z)=="undefined"){
+if(typeof(r5u)=="undefined"){
 if(window.addEventListener)
 	window.addEventListener("load",f,false);
 else window.attachEvent("onload",f);
